@@ -19,7 +19,7 @@
  * The writer is deterministic (same workspace → same text) so a change is a small diff in
  * Standard Notes' revisions. The reader accepts hand edits: a task heading without an ID
  * gets one, unknown property lines stay in the description, text before the first heading
- * is kept as the preamble.
+ * is kept as the preamble (escaped like a description).
  */
 import { BUILTIN_STATUSES, CATEGORIES, emptyWorkspace, PRIORITY_NAMES, PROJECT_STATUSES } from '../model/defaults'
 import type {
@@ -128,9 +128,23 @@ function decodeValue(value: string): string {
 
 const linkLine = (l: Link) => `- Link: [${l.title.replace(/[[\]]/g, '')}](${l.url})`
 
+/**
+ * Closes a code fence a text leaves open. The reader ignores headings inside fences, so an open fence
+ * would swallow every task after it; Markdown runs an unclosed fence to the end anyway, so closing it
+ * at the end shows the same.
+ */
+export function closeFences(text: string): string {
+  let open: string | null = null
+  for (const line of text.split('\n')) {
+    const m = /^\s*(`{3,}|~{3,})/.exec(line)
+    if (m) open = open ? null : m[1]
+  }
+  return open ? `${text}\n${open}` : text
+}
+
 function body(text: string): string[] {
   const t = text.trim()
-  return t ? ['', escapeBody(t)] : []
+  return t ? ['', escapeBody(closeFences(t))] : []
 }
 
 function historyLines(task: Task): string[] {
@@ -255,7 +269,7 @@ function spaceLines(ws: Workspace, space: Space): string[] {
 /** The note's text for a workspace. */
 export function writeNote(ws: Workspace): string {
   const out = frontMatter(ws)
-  if (ws.preamble.trim()) out.push('', ws.preamble.trim())
+  if (ws.preamble.trim()) out.push('', escapeBody(closeFences(ws.preamble.trim())))
   out.push('')
   const spaceIds = new Set(ws.spaces.map((s) => s.id))
   for (const space of ws.spaces) out.push(...spaceLines(ws, space))
@@ -486,7 +500,7 @@ export function readNote(text: string): ReadResult {
     else if (sections.length) sections[sections.length - 1].lines.push(line)
     else preamble.push(line)
   }
-  ws.preamble = preamble.join('\n').trim()
+  ws.preamble = unescapeBody(preamble.join('\n').trim())
 
   const fieldByName = new Map(ws.fields.map((f) => [f.name.toLowerCase(), f]))
   const taskKey = (k: string) => TASK_KEYS.has(k) || fieldByName.has(k.toLowerCase())

@@ -56,6 +56,30 @@ describe('format 1', () => {
     expect(back.history).toEqual([{ at: '2026-11-24T10:00Z', kind: 'comment', text: 'line one\nline two', edited: undefined }])
   })
 
+  it('closes a code fence a description leaves open, so the tasks after it survive', () => {
+    const ws = emptyWorkspace()
+    const task = (id: string, number: number, title: string, description: string) => ({
+      id, number, title, description, status: 'todo', priority: 0 as const, labels: [], created: '2026-11-24T10:00Z',
+      updated: '2026-11-24T10:00Z', aliases: [], fields: {}, history: [],
+    })
+    ws.tasks.push(task('snip01', 1, 'Snippet', 'Run this:\n````sh\n# not a heading\nnpm test'), task('after2', 2, 'After it', ''))
+    ws.settings.noProjectNext = 3
+    const text = writeNote(ws)
+    const back = readNote(text).workspace
+    expect(back.tasks.map((t) => t.title)).toEqual(['Snippet', 'After it'])
+    expect(back.tasks[0].description).toBe('Run this:\n````sh\n# not a heading\nnpm test\n````')
+    expect(writeNote(back)).toBe(text)
+  })
+
+  it('keeps the text of a plain note that becomes a task list, headings and all', () => {
+    const ws = demoWorkspace()
+    ws.preamble = '# Meeting notes\n> a quote\n```\nopen fence'
+    const back = readNote(writeNote(ws)).workspace
+    expect(back.preamble).toBe('# Meeting notes\n> a quote\n```\nopen fence\n```')
+    expect(back.spaces.map((s) => s.name)).toEqual(ws.spaces.map((s) => s.name))
+    expect(back.tasks.length).toBe(ws.tasks.length)
+  })
+
   it('escapes and unescapes losslessly', () => {
     const samples = ['# h', '> q', '\\# e', '\\\\> ee', '  # i', 'plain', '#hashtag']
     for (const s of samples) expect(unescapeBody(escapeBody(s))).toBe(s)
