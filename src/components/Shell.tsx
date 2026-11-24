@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/preserve-manual-memoization -- the React Compiler isn’t used; these memos only keep list building off hover renders */
-import { Archive, CalendarDays, CircleCheck, CircleSlash, Copy, FolderKanban, Keyboard, Menu as MenuIcon, MoreHorizontal, PanelLeft, Plus, Search, Settings, Tag, Trash2, X } from 'lucide-react'
+import { Archive, CalendarDays, CircleCheck, CircleSlash, Copy, FolderKanban, Keyboard, Layers, Menu as MenuIcon, MoreHorizontal, PanelLeft, Plus, Search, Settings, Tag, Trash2, X } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { PROJECT_STATUSES } from '../lib/model/defaults'
 import type { Filter, Task } from '../lib/model/types'
@@ -20,6 +20,8 @@ const TableView = lazy(() => import('./TableView').then((m) => ({ default: m.Tab
 const TaskDetail = lazy(() => import('./TaskDetail').then((m) => ({ default: m.TaskDetail })))
 const Picker = lazy(() => import('./Picker').then((m) => ({ default: m.Picker })))
 const CreateDialog = lazy(() => import('./CreateDialog').then((m) => ({ default: m.CreateDialog })))
+const SpaceOverview = lazy(() => import('./SpaceOverview').then((m) => ({ default: m.SpaceOverview })))
+const WorkspaceSettings = lazy(() => import('./WorkspaceSettings').then((m) => ({ default: m.WorkspaceSettings })))
 
 const LETTERS: Record<string, PickerKind> = { s: 'status', p: 'priority', l: 'labels', d: 'due', m: 'project', t: 'type', b: 'bucket', y: 'cycle' }
 const typing = (el: EventTarget | null) => el instanceof HTMLElement && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))
@@ -38,15 +40,18 @@ export function Shell() {
     const l = state.view.location
     if (l?.kind === 'project' && ws.projects.some((p) => p.id === l.id)) return l
     if (l?.kind === 'filter' && ws.filters.some((f) => f.id === l.id)) return l
-    if (l?.kind === 'no-project') return l
+    if (l?.kind === 'no-project' || l?.kind === 'settings') return l
+    if (l?.kind === 'space' && ws.spaces.some((s) => s.id === l.id)) return l
     const first = ws.projects.find((p) => !p.archived)
     return first ? { kind: 'project', id: first.id, tab: 'tasks' } : { kind: 'no-project' }
-  }, [state.view.location, ws.projects, ws.filters])
+  }, [state.view.location, ws.projects, ws.filters, ws.spaces])
   const go = (location: Location) => {
     store.setView({ location })
     setUi({ selection: [], focus: null, peek: null, page: null, drawer: false })
   }
   const project = loc.kind === 'project' ? ws.projects.find((p) => p.id === loc.id) : undefined
+  const space = loc.kind === 'space' ? ws.spaces.find((s) => s.id === loc.id) : undefined
+  const [renaming, setRenaming] = useState<string | null>(null)
   const filter = loc.kind === 'filter' ? ws.filters.find((f) => f.id === loc.id) : loc.kind === 'project' && loc.tab.startsWith('filter:') ? ws.filters.find((f) => f.id === loc.tab.slice(7)) : undefined
   const key = locKey(loc)
   const savedDisplay = state.view.display
@@ -76,11 +81,12 @@ export function Shell() {
       void import('./TaskDetail')
       void import('./Board')
       void import('./TableView')
+      void import('./WorkspaceSettings')
     }, 800)
     return () => clearTimeout(timer)
   }, [])
 
-  const createDefaults = (defaults?: Partial<ops.NewTask> | null) => setUi({ creating: { ...(project ? { project: project.id } : {}), ...(defaults ?? {}) } })
+  const createDefaults = (defaults?: Partial<ops.NewTask> | null) => setUi({ creating: { ...(project ? { project: project.id } : space ? { space: space.id } : {}), ...(defaults ?? {}) } })
   const openTask = useCallback((task: Task, page: boolean) => {
     const narrow = window.innerWidth < 900
     if (page || narrow) setUi({ page: task.id, peek: null, focus: task.id })
@@ -171,11 +177,13 @@ export function Shell() {
     const next = visible[Math.max(0, Math.min(visible.length - 1, (index < 0 ? 0 : index) + delta))]
     setUi((u) => ({ focus: next.id, ...(u.peek ? { peek: next.id } : { page: next.id }) }))
   }
-  const title = filter && loc.kind === 'filter' ? filter.name : project?.name ?? (loc.kind === 'no-project' ? 'No project' : 'Tasks')
+  const title = loc.kind === 'settings' ? 'Settings' : space ? space.name : filter && loc.kind === 'filter' ? filter.name : project?.name ?? (loc.kind === 'no-project' ? 'No project' : 'Tasks')
   const openCount = scope.filter((t) => !t.archived && !isClosed(ws, t)).length
   const showProject = loc.kind !== 'project'
 
   const content = () => {
+    if (loc.kind === 'settings') return <WorkspaceSettings page={loc.page} onPage={(page) => go({ kind: 'settings', page })} />
+    if (loc.kind === 'space' && loc.tab === 'overview' && space) return <SpaceOverview spaceId={space.id} onOpenProject={(id) => go({ kind: 'project', id, tab: 'tasks' })} onOpenTask={(t) => setUi({ page: t.id, focus: t.id })} onCreate={(d) => createDefaults(d)} />
     if (loc.kind === 'project' && loc.tab === 'overview' && project) return <Overview projectId={project.id} />
     if (loc.kind === 'project' && loc.tab === 'settings' && project) return <ProjectSettings projectId={project.id} onDeleted={() => go({ kind: 'no-project' })} />
     const empty = !rows.length && display.layout !== 'board'
@@ -228,15 +236,34 @@ export function Shell() {
             <header className="head">
               <button className="icon-btn phone-only" aria-label="Menu" onClick={(e) => (e.stopPropagation(), setUi({ drawer: true }))}><MenuIcon size={18} /></button>
               {state.view.sidebar === false && <button className="icon-btn desk-only" aria-label="Show sidebar" onClick={() => store.setView({ sidebar: true })}><PanelLeft size={15} /></button>}
-              {project ? <EntityIcon name={project.icon} color={project.color} size={16} /> : loc.kind === 'no-project' ? <CircleSlash size={15} className="faint" /> : <CalendarDays size={15} className="faint" />}
-              <h1>{title}</h1>
+              {space ? <EntityIcon name={space.icon} color={space.color} size={16} fallback={Layers} /> : project ? <EntityIcon name={project.icon} color={project.color} size={16} /> : loc.kind === 'no-project' ? <CircleSlash size={15} className="faint" /> : <CalendarDays size={15} className="faint" />}
+              {renaming !== null && (project || space) ? (
+                <input autoFocus aria-label="Name" value={renaming} onChange={(e) => setRenaming(e.target.value)} style={{ font: 'inherit', fontWeight: 600, fontSize: 13.5, border: '1px solid var(--line-2)', borderRadius: 6, padding: '2px 6px', background: 'var(--bg)' }}
+                  onBlur={() => {
+                    const name = renaming.trim()
+                    if (name && project && name !== project.name) store.apply('Renamed project', (d) => ops.updateProject(d, project.id, { name }))
+                    if (name && space && name !== space.name && !/[,"]/.test(name)) store.apply('Renamed space', (d) => ops.updateSpace(d, space.id, { name }))
+                    setRenaming(null)
+                  }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setRenaming(null) }} />
+              ) : (
+                <h1 onDoubleClick={() => !state.locked && (project || space) && setRenaming((project ?? space)!.name)} title={project || space ? 'Double-click to rename' : undefined}>{title}</h1>
+              )}
               {project && <ProjectMenu projectId={project.id} onDeleted={() => go({ kind: 'no-project' })} />}
-              <span className="count num" title={`${openCount} open`}>{openCount}</span>
+              {space && <SpaceMenu spaceId={space.id} onDeleted={() => go({ kind: 'no-project' })} />}
+              {loc.kind !== 'settings' && <span className="count num" title={`${openCount} open`}>{openCount}</span>}
               {state.converting && <span className="badge" title="This note was a Kanban board; it is saved in the Tasks format on your first change.">From Kanban Board</span>}
               {state.locked && <span className="badge">Locked</span>}
               <span className="spacer" />
               {!state.locked && <button className="btn desk-only" onClick={() => createDefaults()} title="New task (C)"><Plus size={14} />New task</button>}
             </header>
+            {space && (
+              <nav className="tabs" role="tablist" aria-label="Space tabs">
+                {(['overview', 'tasks'] as const).map((tab) => (
+                  <button key={tab} role="tab" className="tab" aria-selected={loc.kind === 'space' && loc.tab === tab} onClick={() => go({ kind: 'space', id: space.id, tab })}>{tab === 'overview' ? 'Overview' : 'Tasks'}</button>
+                ))}
+              </nav>
+            )}
             {project && (
               <nav className="tabs" role="tablist" aria-label="Project tabs">
                 {(['overview', 'tasks'] as const).map((tab) => (
@@ -324,6 +351,8 @@ function Sidebar({ loc, go }: { loc: Location; go: (l: Location) => void }) {
   const ws = state.ws
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
+  const [addingSpace, setAddingSpace] = useState(false)
+  const [spaceName, setSpaceName] = useState('')
   const counts = useMemo(() => {
     const open = (t: Task) => !t.archived && !isClosed(ws, t)
     const byProject = new Map<string, number>()
@@ -361,10 +390,33 @@ function Sidebar({ loc, go }: { loc: Location; go: (l: Location) => void }) {
             <span className="count num">{filterCount(f) || ''}</span>
           </button>
         ))}
-        {ws.spaces.filter((s) => !s.archived).length > 0 && <div className="sb-section">Spaces</div>}
+        <div className="sb-section">
+          Spaces
+          <span className="acts">{!state.locked && <button className="icon-btn" aria-label="New space" title="New space" onClick={() => setAddingSpace(true)}><Plus size={14} /></button>}</span>
+        </div>
+        {!ws.spaces.some((s) => !s.archived) && !addingSpace && <div className="sb-hint">Group projects into ongoing areas</div>}
+        {addingSpace && (
+          <div className="sb-item">
+            <Layers size={14} className="faint" />
+            <input autoFocus aria-label="Space name" placeholder="A space you keep up, e.g. Home" value={spaceName} style={{ border: 0, outline: 'none', background: 'transparent', flex: 1, minWidth: 0 }}
+              onChange={(e) => setSpaceName(e.target.value)} onBlur={() => !spaceName.trim() && setAddingSpace(false)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && spaceName.trim()) {
+                  const id = newId()
+                  if (store.apply(`Created ${spaceName.trim()}`, (d) => void ops.createSpace(d, spaceName, id))) go({ kind: 'space', id, tab: 'overview' })
+                  setSpaceName('')
+                  setAddingSpace(false)
+                }
+                if (e.key === 'Escape') {
+                  setSpaceName('')
+                  setAddingSpace(false)
+                }
+              }} />
+          </div>
+        )}
         {ws.spaces.filter((s) => !s.archived).map((s) => (
           <div key={s.id}>
-            <div className="sb-item" style={{ color: 'var(--fg-2)' }}><EntityIcon name={s.icon} color={s.color} size={14} /><span className="name">{s.name}</span></div>
+            <button className="sb-item" aria-current={loc.kind === 'space' && loc.id === s.id ? 'page' : undefined} onClick={() => go({ kind: 'space', id: s.id, tab: 'overview' })}><EntityIcon name={s.icon} color={s.color} size={14} fallback={Layers} /><span className="name">{s.name}</span></button>
             {ws.projects.filter((p) => p.space === s.id && !p.archived).map((p) => projectRow(p.id, true))}
           </div>
         ))}
@@ -409,6 +461,10 @@ function Sidebar({ loc, go }: { loc: Location; go: (l: Location) => void }) {
             <span className="count num">{counts.noProject || ''}</span>
           </button>
         )}
+        <button className="sb-item" style={{ marginTop: 12 }} aria-current={loc.kind === 'settings' ? 'page' : undefined} onClick={() => go({ kind: 'settings', page: 'general' })}>
+          <Settings size={14} className="faint" />
+          <span className="name">Settings</span>
+        </button>
         {ws.projects.some((p) => p.archived) && (
           <div className="sb-hint" style={{ paddingTop: 10 }}>
             <Archive size={12} /> {ws.projects.filter((p) => p.archived).length} archived
@@ -440,6 +496,36 @@ function ProjectMenu({ projectId, onDeleted }: { projectId: string; onDeleted: (
             setOpen(false)
             setUi({ confirm: { title: `Delete project ${p.name}`, body: `This project${n ? ` and its ${n} task${n === 1 ? '' : 's'}` : ''} will be deleted. You can undo this until you close the note.`, confirm: 'Delete project', danger: true, run: () => (store.apply(`Deleted ${p.name}`, (d) => ops.deleteProject(d, p.id), 'undo'), onDeleted()) } })
           }}><Trash2 size={14} />Delete project</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SpaceMenu({ spaceId, onDeleted }: { spaceId: string; onDeleted: () => void }) {
+  const { state, store, setUi } = useApp()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useDismiss(ref, () => setOpen(false), open)
+  const sp = state.ws.spaces.find((x) => x.id === spaceId)
+  if (!sp) return null
+  const n = state.ws.projects.filter((p) => p.space === sp.id).length
+  return (
+    <div style={{ position: 'relative' }} ref={ref}>
+      <button className="icon-btn" aria-label="Space actions" onClick={() => setOpen(!open)}><MoreHorizontal size={15} /></button>
+      {open && (
+        <div className="menu" style={{ position: 'absolute', top: 32, left: 0 }}>
+          <div className="mhead">Icon</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '0 6px 6px', maxWidth: 230 }}>
+            {Object.keys(ENTITY_ICONS).slice(0, 18).map((icon) => (
+              <button key={icon} className="icon-btn" aria-label={icon} onClick={() => store.apply('Space icon', (d) => ops.updateSpace(d, sp.id, { icon }))}><EntityIcon name={icon} size={14} /></button>
+            ))}
+          </div>
+          <div className="msep" />
+          <button className="mi danger" onClick={() => {
+            setOpen(false)
+            setUi({ confirm: { title: `Delete space ${sp.name}`, body: n ? `Its ${n} project(s) move out of any space, and every task stays.` : 'Its tasks stay, outside any space.', confirm: 'Delete space', danger: true, run: () => (store.apply(`Deleted ${sp.name}`, (d) => ops.deleteSpace(d, sp.id), 'undo'), onDeleted()) } })
+          }}><Trash2 size={14} />Delete space</button>
         </div>
       )}
     </div>
@@ -553,6 +639,12 @@ function ProjectSettings({ projectId, onDeleted }: { projectId: string; onDelete
             <input aria-label="Project key" value={key} style={{ ...input, width: 90, fontFamily: 'var(--mono)', borderColor: keyOk ? undefined : 'var(--attention)' }} readOnly={state.locked}
               onChange={(e) => setKey(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5))}
               onBlur={() => (keyOk && key !== p.key ? store.apply('Changed key', (d) => ops.updateProject(d, p.id, { key })) : setKey(p.key))} />
+          ))}
+          {row('Space', 'Where it sits in the sidebar.', (
+            <select aria-label="Project space" value={p.space ?? ''} disabled={state.locked} onChange={(e) => store.apply('Moved project', (d) => ops.updateProject(d, p.id, { space: e.target.value || undefined }))} style={input}>
+              <option value="">No space</option>
+              {state.ws.spaces.filter((x) => !x.archived).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+            </select>
           ))}
           {row('Colour', 'Tints the project’s icon.', (
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', maxWidth: 260 }}>

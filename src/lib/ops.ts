@@ -5,7 +5,7 @@
  * Task changes also write the task's history (status, priority, due, project…) and timestamps.
  */
 import { PRIORITY_NAMES } from './model/defaults'
-import type { Filter, HistoryEntry, HistoryKind, Priority, Project, Task, Workspace } from './model/types'
+import type { Filter, HistoryEntry, HistoryKind, Priority, Project, Space, Task, Workspace } from './model/types'
 import {
   childrenOf,
   deriveKey,
@@ -385,4 +385,26 @@ export function saveFilter(d: Draft, filter: Filter) {
 
 export function deleteFilter(d: Draft, id: string) {
   d.set('filters', d.ws.filters.filter((f) => f.id !== id))
+}
+
+// ───────────────────────── spaces ─────────────────────────
+
+export function createSpace(d: Draft, name: string, id = newId()): Space | null {
+  const clean = name.trim()
+  if (!clean || /[,"]/.test(clean) || ['projects', 'no project'].includes(clean.toLowerCase())) return null
+  const space: Space = { id, name: clean, labels: [], description: '', links: [], archived: false }
+  d.set('spaces', [...d.ws.spaces, space])
+  return space
+}
+
+export function updateSpace(d: Draft, id: string, patch: Partial<Space>) {
+  d.set('spaces', d.ws.spaces.map((s) => (s.id === id ? { ...s, ...patch } : s)))
+}
+
+/** Deletes a space for good: its projects move out of any space, its own tasks stay (without a space). */
+export function deleteSpace(d: Draft, id: string) {
+  for (const p of [...d.projects.values()].filter((x) => x.space === id)) d.putProject({ ...p, space: undefined })
+  for (const t of d.ws.tasks.filter((x) => x.space === id)) patchTask(d, t.id, { space: undefined }, false)
+  d.set('spaces', d.ws.spaces.filter((s) => s.id !== id))
+  d.set('filters', d.ws.filters.filter((f) => f.space !== id))
 }
