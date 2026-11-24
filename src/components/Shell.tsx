@@ -11,6 +11,7 @@ import { cycleName, cycleRange, openCount as cycleOpen, readyToClose } from '../
 import { today } from '../lib/model/workspace'
 import { boardColumns, listRows, scopeTasks, searchTasks } from '../lib/view'
 import { CompleteCycleDialog, CycleIcon, CycleSummary } from './CycleViews'
+import { ProjectActivity, ProjectLinks } from './ProjectActivity'
 import { useApp, type PickerKind } from './context'
 import { EntityIcon, ENTITY_ICONS, PriorityIcon, StatusIcon } from './icons'
 import { TaskList } from './TaskList'
@@ -595,6 +596,8 @@ function Overview({ projectId }: { projectId: string }) {
             {p.description ? <Markdown className="desc" text={p.description} /> : <div className="desc placeholder">Add a description…</div>}
           </div>
         )}
+        <div className="sect" style={{ marginTop: 10 }}>Activity</div>
+        <ProjectActivity project={p} now={now} />
         <div className="sect" style={{ marginTop: 10 }}>Progress</div>
         {counted.length ? (
           <>
@@ -626,6 +629,8 @@ function Overview({ projectId }: { projectId: string }) {
           })}
           {!upNext(ws, tasks).length && <p className="faint" style={{ margin: 0 }}>Nothing open here. Enjoy the quiet.</p>}
         </div>
+        <div className="sect" style={{ marginTop: 10 }}>Links</div>
+        <ProjectLinks project={p} />
       </div>
     </div>
   )
@@ -823,7 +828,7 @@ function CommandPalette({ go }: { go: (l: Location) => void }) {
 
 const SHORTCUTS: [string, [string, string][]][] = [
   ['Lists', [['Move down / up', 'J / K'], ['Extend selection', '⇧J / ⇧K'], ['Select', 'X'], ['Select all', '⌘A'], ['Preview', 'Space'], ['Open', 'Enter'], ['Search and filter', '/'], ['New task', 'C'], ['Clear, close', 'Esc']]],
-  ['Change', [['Status', 'S'], ['Priority', 'P'], ['Labels', 'L'], ['Due date', 'D'], ['Project', 'M'], ['Type', 'T'], ['Bucket', 'B'], ['Undo / redo', '⌘Z / ⇧⌘Z']]],
+  ['Change', [['Status', 'S'], ['Priority', 'P'], ['Labels', 'L'], ['Due date', 'D'], ['Project', 'M'], ['Type', 'T'], ['Bucket', 'B'], ['Cycle', 'Y'], ['Undo / redo', '⌘Z / ⇧⌘Z']]],
   ['A task', [['Edit title', 'E'], ['Comment', 'C'], ['Send comment', '⌘↵'], ['Open full page', '⌘↵'], ['Next / previous', 'J / K']]],
   ['New task', [['Label', '#label'], ['Priority', '!high'], ['Due date', 'fri, tomorrow, Dec 12'], ['Complete a word', 'Tab or →'], ['Keep a word as text', '⌫ after it'], ['Create', '⌘↵']]],
   ['Anywhere', [['Search or jump to', '⌘K'], ['Shortcuts', '?']]],
