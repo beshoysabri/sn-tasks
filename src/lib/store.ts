@@ -32,6 +32,11 @@ export interface DisplayOptions {
 
 export const DEFAULT_DISPLAY: DisplayOptions = { layout: 'list', groupBy: 'status', columns: 'status', wrap: false, ordering: 'manual', direction: 'asc' }
 
+/** A list's display options: saved ones over the defaults (filters and spaces group by project). */
+export function resolveDisplay(saved: Record<string, DisplayOptions>, key: string): DisplayOptions {
+  return { ...DEFAULT_DISPLAY, ...(key.startsWith('filter:') || key.startsWith('space:') ? { groupBy: 'project' as GroupBy } : {}), ...saved[key] }
+}
+
 /** Where the main area is. */
 export type Location =
   | { kind: 'project'; id: string; tab: string }
@@ -47,6 +52,8 @@ export interface ViewState {
   collapsed: Record<string, string[]>
   sidebar: boolean
   peekWidth: number
+  /** The new-task dialog's "Create more" switch. */
+  createMore?: boolean
 }
 
 export const DEFAULT_VIEW: ViewState = { display: {}, collapsed: {}, sidebar: true, peekWidth: 480 }
@@ -313,7 +320,7 @@ export class Store {
   }
 
   display(key: string): DisplayOptions {
-    return { ...DEFAULT_DISPLAY, ...(key.startsWith('filter:') || key.startsWith('space:') ? { groupBy: 'project' as GroupBy } : {}), ...this.state.view.display[key] }
+    return resolveDisplay(this.state.view.display, key)
   }
 
   setDisplay(key: string, patch: Partial<DisplayOptions>) {

@@ -5,9 +5,10 @@
  * Task changes also write the task's history (status, priority, due, project…) and timestamps.
  */
 import { PRIORITY_NAMES } from './model/defaults'
-import type { HistoryEntry, HistoryKind, Priority, Project, Task, Workspace } from './model/types'
+import type { Filter, HistoryEntry, HistoryKind, Priority, Project, Task, Workspace } from './model/types'
 import {
   childrenOf,
+  deriveKey,
   doneStatusId,
   isClosedCategory,
   nearestStatusId,
@@ -340,4 +341,48 @@ export function placeBetween(d: Draft, id: string, before?: Task, after?: Task) 
   const o = (t: Task) => t.order ?? t.number * 1024
   const order = before && after ? (o(before) + o(after)) / 2 : before ? o(before) + 1024 : after ? o(after) - 1024 : 0
   patchTask(d, id, { order }, false)
+}
+
+// ───────────────────────── projects and filters ─────────────────────────
+
+export function createProject(d: Draft, input: { name: string; space?: string; key?: string; icon?: string; color?: string }, id = newId()): Project {
+  const ws = d.ws
+  const key = input.key && /^[A-Z][A-Z0-9]{1,4}$/.test(input.key) && !ws.projects.some((p) => p.key === input.key) ? input.key : deriveKey(input.name, ws.projects.map((p) => p.key).concat(ws.settings.noProjectKey))
+  const project: Project = {
+    id, name: input.name.trim() || 'Untitled project', key, next: 1, icon: input.icon, color: input.color, status: 'planned', priority: 0,
+    labels: [], space: input.space, description: '', links: [], archived: false, pinned: false,
+  }
+  d.putProject(project)
+  return project
+}
+
+export function updateProject(d: Draft, id: string, patch: Partial<Project>) {
+  const project = d.projects.get(id)
+  if (!project) return
+  // A new key renumbers nothing but the prefix; old IDs keep finding the tasks.
+  if (patch.key && patch.key !== project.key) {
+    for (const t of d.ws.tasks.filter((x) => x.project === id)) {
+      const old = `${project.key}-${t.number}`
+      patchTask(d, t.id, { aliases: [...t.aliases.filter((a) => a !== old), old] }, false)
+    }
+  }
+  d.putProject({ ...project, ...patch })
+}
+
+/** Deletes a project for good, with its tasks. */
+export function deleteProject(d: Draft, id: string) {
+  deleteTasks(d, d.ws.tasks.filter((t) => t.project === id).map((t) => t.id))
+  d.removeProject(id)
+  d.set('filters', d.ws.filters.filter((f) => f.project !== id))
+}
+
+export function saveFilter(d: Draft, filter: Filter) {
+  const list = d.ws.filters.filter((f) => f.id !== filter.id)
+  const at = d.ws.filters.findIndex((f) => f.id === filter.id)
+  list.splice(at < 0 ? list.length : at, 0, filter)
+  d.set('filters', list)
+}
+
+export function deleteFilter(d: Draft, id: string) {
+  d.set('filters', d.ws.filters.filter((f) => f.id !== id))
 }
