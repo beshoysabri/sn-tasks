@@ -36,12 +36,10 @@ export class Draft {
   readonly change: Change
   collections: Partial<Collections> = {}
   readonly now: string
+  readonly base: Workspace
 
-  constructor(
-    readonly base: Workspace,
-    label: string,
-    now = nowStamp(),
-  ) {
+  constructor(base: Workspace, label: string, now = nowStamp()) {
+    this.base = base
     this.tasks = new Map(base.tasks.map((t) => [t.id, t]))
     this.projects = new Map(base.projects.map((p) => [p.id, p]))
     this.taskOrder = base.tasks.map((t) => t.id)
