@@ -1,0 +1,11 @@
+{
+  "identifier": "com.beshoysabri.sn-tasks.dev",
+  "name": "Tasks (Dev)",
+  "content_type": "SN|Component",
+  "area": "editor-editor",
+  "note_type": "markdown",
+  "file_type": "md",
+  "version": "0.1.0",
+  "description": "Tasks — development version",
+  "url": "http://localhost:5173/index.html?v=0.1.0"
+}

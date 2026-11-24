@@ -1,0 +1,13 @@
+{
+  "identifier": "com.beshoysabri.sn-tasks",
+  "name": "Tasks",
+  "content_type": "SN|Component",
+  "area": "editor-editor",
+  "note_type": "markdown",
+  "file_type": "md",
+  "version": "0.1.0",
+  "description": "Projects and tasks in one note: a list, a board and a table, quick add with dates, #labels and !priority, a filter language, keyboard-first triage, and a phone layout.",
+  "url": "https://beshoysabri.github.io/sn-tasks/index.html?v=0.1.0",
+  "latest_url": "https://beshoysabri.github.io/sn-tasks/ext.json",
+  "marketing_url": "https://github.com/beshoysabri/sn-tasks"
+}
