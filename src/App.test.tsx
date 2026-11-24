@@ -93,15 +93,13 @@ describe('the editor inside a fake Standard Notes', () => {
     await user.click(screen.getByRole('button', { name: 'Project actions' }))
     await user.click(screen.getByRole('button', { name: 'Archive project' }))
     expect(within(sidebar).queryByRole('button', { name: /Finance/ })).not.toBeInTheDocument()
+    await waitFor(() => expect(savedText(host)).toMatch(/- Archived: yes/))
     await user.click(within(sidebar).getByRole('button', { name: /1 archived/ }))
     await user.click(within(sidebar).getByRole('button', { name: /Finance/ }))
     await user.click(screen.getByRole('button', { name: 'Project actions' }))
     await user.click(screen.getByRole('button', { name: 'Restore project' }))
     expect(within(sidebar).queryByRole('button', { name: /archived/ })).not.toBeInTheDocument()
-    await waitFor(() => {
-      expect(host.saves().length).toBeGreaterThan(0)
-      expect(savedText(host)).not.toMatch(/- Archived: yes/)
-    })
+    await waitFor(() => expect(savedText(host)).not.toMatch(/- Archived: yes/))
   })
 
   it('makes no network requests', async () => {
