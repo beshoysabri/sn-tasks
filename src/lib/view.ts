@@ -36,6 +36,8 @@ export function scopeTasks(ws: Workspace, loc: Location | undefined): Task[] {
       return ws.tasks.filter((t) => t.project === loc.id)
     case 'space':
       return ws.tasks.filter((t) => spaceIdOf(ws, t) === loc.id && !projectOf(ws, t)?.archived)
+    case 'cycle':
+      return ws.tasks.filter((t) => t.cycle === loc.id)
     case 'no-project':
       return ws.tasks.filter((t) => !t.project || !ws.projects.some((p) => p.id === t.project))
     case 'filter':

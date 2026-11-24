@@ -7,7 +7,10 @@ import { identifier, isClosed, newId, projectOf, statusOf } from '../lib/model/w
 import * as ops from '../lib/ops'
 import { filterTasks, upNext } from '../lib/query'
 import { resolveDisplay, type Location } from '../lib/store'
+import { cycleName, cycleRange, openCount as cycleOpen, readyToClose } from '../lib/cycles'
+import { today } from '../lib/model/workspace'
 import { boardColumns, listRows, scopeTasks, searchTasks } from '../lib/view'
+import { CompleteCycleDialog, CycleIcon, CycleSummary } from './CycleViews'
 import { useApp, type PickerKind } from './context'
 import { EntityIcon, ENTITY_ICONS, PriorityIcon, StatusIcon } from './icons'
 import { TaskList } from './TaskList'
@@ -30,6 +33,7 @@ function locKey(loc: Location): string {
   if (loc.kind === 'project') return loc.tab.startsWith('filter:') ? `project:${loc.id}/${loc.tab}` : `project:${loc.id}`
   if (loc.kind === 'filter') return `filter:${loc.id}`
   if (loc.kind === 'space') return `space:${loc.id}`
+  if (loc.kind === 'cycle') return `cycle:${loc.id}`
   return loc.kind
 }
 
@@ -42,15 +46,18 @@ export function Shell() {
     if (l?.kind === 'filter' && ws.filters.some((f) => f.id === l.id)) return l
     if (l?.kind === 'no-project' || l?.kind === 'settings') return l
     if (l?.kind === 'space' && ws.spaces.some((s) => s.id === l.id)) return l
+    if (l?.kind === 'cycle' && ws.cycles.some((c) => c.id === l.id)) return l
     const first = ws.projects.find((p) => !p.archived)
     return first ? { kind: 'project', id: first.id, tab: 'tasks' } : { kind: 'no-project' }
-  }, [state.view.location, ws.projects, ws.filters, ws.spaces])
+  }, [state.view.location, ws.projects, ws.filters, ws.spaces, ws.cycles])
   const go = (location: Location) => {
     store.setView({ location })
     setUi({ selection: [], focus: null, peek: null, page: null, drawer: false })
   }
   const project = loc.kind === 'project' ? ws.projects.find((p) => p.id === loc.id) : undefined
   const space = loc.kind === 'space' ? ws.spaces.find((s) => s.id === loc.id) : undefined
+  const cycle = loc.kind === 'cycle' ? ws.cycles.find((c) => c.id === loc.id) : undefined
+  const [completing, setCompleting] = useState(false)
   const [renaming, setRenaming] = useState<string | null>(null)
   const filter = loc.kind === 'filter' ? ws.filters.find((f) => f.id === loc.id) : loc.kind === 'project' && loc.tab.startsWith('filter:') ? ws.filters.find((f) => f.id === loc.tab.slice(7)) : undefined
   const key = locKey(loc)
@@ -86,7 +93,7 @@ export function Shell() {
     return () => clearTimeout(timer)
   }, [])
 
-  const createDefaults = (defaults?: Partial<ops.NewTask> | null) => setUi({ creating: { ...(project ? { project: project.id } : space ? { space: space.id } : {}), ...(defaults ?? {}) } })
+  const createDefaults = (defaults?: Partial<ops.NewTask> | null) => setUi({ creating: { ...(project ? { project: project.id } : space ? { space: space.id } : {}), ...(cycle && cycle.state !== 'ended' ? { cycle: cycle.id } : {}), ...(defaults ?? {}) } })
   const openTask = useCallback((task: Task, page: boolean) => {
     const narrow = window.innerWidth < 900
     if (page || narrow) setUi({ page: task.id, peek: null, focus: task.id })
@@ -177,7 +184,7 @@ export function Shell() {
     const next = visible[Math.max(0, Math.min(visible.length - 1, (index < 0 ? 0 : index) + delta))]
     setUi((u) => ({ focus: next.id, ...(u.peek ? { peek: next.id } : { page: next.id }) }))
   }
-  const title = loc.kind === 'settings' ? 'Settings' : space ? space.name : filter && loc.kind === 'filter' ? filter.name : project?.name ?? (loc.kind === 'no-project' ? 'No project' : 'Tasks')
+  const title = loc.kind === 'settings' ? 'Settings' : cycle ? cycleName(cycle) : space ? space.name : filter && loc.kind === 'filter' ? filter.name : project?.name ?? (loc.kind === 'no-project' ? 'No project' : 'Tasks')
   const openCount = scope.filter((t) => !t.archived && !isClosed(ws, t)).length
   const showProject = loc.kind !== 'project'
 
@@ -251,6 +258,10 @@ export function Shell() {
               )}
               {project && <ProjectMenu projectId={project.id} onDeleted={() => go({ kind: 'no-project' })} />}
               {space && <SpaceMenu spaceId={space.id} onDeleted={() => go({ kind: 'no-project' })} />}
+              {cycle && <span className="faint" style={{ fontSize: 12 }}>{cycleRange(cycle)}</span>}
+              {cycle && readyToClose(cycle, today()) && <span className="badge">Ready to close</span>}
+              {cycle?.state === 'ended' && <span className="badge">Ended</span>}
+              {cycle?.state === 'active' && !state.locked && <button className="btn" onClick={() => setCompleting(true)}>Complete cycle</button>}
               {loc.kind !== 'settings' && <span className="count num" title={`${openCount} open`}>{openCount}</span>}
               {state.converting && <span className="badge" title="This note was a Kanban board; it is saved in the Tasks format on your first change.">From Kanban Board</span>}
               {state.locked && <span className="badge">Locked</span>}
@@ -282,6 +293,7 @@ export function Shell() {
                 </span>
               </nav>
             )}
+            {cycle && <CycleSummary cycle={cycle} />}
             <div className="split">
               <div className="pane">{content()}</div>
               {ui.peek && openTaskObj && (
@@ -302,6 +314,7 @@ export function Shell() {
       <ConfirmDialog />
       {ui.command && <CommandPalette go={go} />}
       {ui.help && <Help />}
+      {completing && cycle && <CompleteCycleDialog cycleId={cycle.id} onClose={() => setCompleting(false)} />}
       <ToastView />
       </Suspense>
     </div>
@@ -388,6 +401,15 @@ function Sidebar({ loc, go }: { loc: Location; go: (l: Location) => void }) {
             {f.id === 'recently-completed' ? <CircleCheck size={14} style={{ color: f.color ?? 'var(--review)' }} /> : <CalendarDays size={14} className="faint" />}
             <span className="name">{f.name}</span>
             <span className="count num">{filterCount(f) || ''}</span>
+          </button>
+        ))}
+        {ws.cycleSettings.enabled && ws.cycles.length > 0 && <div className="sb-section">Cycles</div>}
+        {ws.cycleSettings.enabled && [...ws.cycles].sort((a, b) => ['active', 'upcoming', 'ended'].indexOf(a.state) - ['active', 'upcoming', 'ended'].indexOf(b.state) || b.start.localeCompare(a.start)).slice(0, 4).map((c) => (
+          <button key={c.id} className="sb-item" aria-current={loc.kind === 'cycle' && loc.id === c.id ? 'page' : undefined} onClick={() => go({ kind: 'cycle', id: c.id })}>
+            <CycleIcon size={14} className="faint" />
+            <span className="name">{cycleName(c)}</span>
+            <span className="faint" style={{ fontSize: 11 }}>{cycleRange(c)}</span>
+            <span className="count num">{cycleOpen(ws, c.id) || ''}</span>
           </button>
         ))}
         <div className="sb-section">

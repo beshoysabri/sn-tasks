@@ -3,6 +3,7 @@ import { useRef, useState, type ReactNode } from 'react'
 import { CATEGORIES, CATEGORY_NAMES, PALETTE, PRIORITY_NAMES } from '../lib/model/defaults'
 import type { FieldType, Priority, StatusCategory } from '../lib/model/types'
 import { allLabels, labelColour } from '../lib/model/workspace'
+import { ensureCycles } from '../lib/cycles'
 import * as s from '../lib/settingsOps'
 import { useApp } from './context'
 import { Layers, Shapes, StatusIcon } from './icons'
@@ -203,7 +204,10 @@ export function WorkspaceSettings({ page, onPage }: { page: string; onPage: (p: 
             <p className="muted">Plan work in repeating time boxes. Turning cycles on starts a numbered active cycle and an upcoming one; tasks are not added automatically.</p>
             <div style={card}>
               <label style={rowStyle}>
-                <input type="checkbox" checked={ws.cycleSettings.enabled} disabled={locked} onChange={(e) => apply(e.target.checked ? 'Cycles on' : 'Cycles off', (d) => d.set('cycleSettings', { ...d.ws.cycleSettings, enabled: e.target.checked }))} />
+                <input type="checkbox" checked={ws.cycleSettings.enabled} disabled={locked} onChange={(e) => apply(e.target.checked ? 'Cycles on' : 'Cycles off', (d) => {
+                  d.set('cycleSettings', { ...d.ws.cycleSettings, enabled: e.target.checked })
+                  ensureCycles(d)
+                })} />
                 Use cycles
               </label>
               <label style={rowStyle}>

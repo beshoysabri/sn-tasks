@@ -42,6 +42,7 @@ export type Location =
   | { kind: 'project'; id: string; tab: string }
   | { kind: 'space'; id: string; tab: string }
   | { kind: 'filter'; id: string }
+  | { kind: 'cycle'; id: string }
   | { kind: 'no-project' }
   | { kind: 'archived' }
   | { kind: 'settings'; page: string }
