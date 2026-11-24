@@ -19,9 +19,35 @@ Newest decisions first.
 - `src/lib/model/`: the workspace types, built-in vocabulary (statuses, priorities, palette, seeds) and helpers
   (IDs and keys, status categories, identifiers like WEB-12).
 - `src/lib/format/note.ts`: format 1, the workspace as readable Markdown, and back. Deterministic writer.
+- `src/lib/settingsOps.ts`: statuses, labels, types, buckets and custom fields; renaming or deleting one
+  updates every task, project and type that uses it.
+- `src/lib/cycles.ts`: cycles (make the active and upcoming ones, complete one, numbers).
+- `src/lib/view.ts`: rows and groups for the list and the board (folding, subtasks, context rows).
+- `src/lib/importOctarine.ts` + `scripts/import-octarine.ts`: the one-time Octarine import.
+- `src/components/`: `Shell.tsx` (sidebar, toolbar, keys, overview, project settings), `TaskList`, `Board`,
+  `TableView`, `TaskDetail` (preview and page), `CreateDialog` (quick add), `Picker`, `WorkspaceSettings`,
+  `SpaceOverview`, `CycleViews`, `ProjectActivity`. Heavy ones load on demand (see below).
 - `src/sample/demo.ts`: a made-up workspace for development, tests and screenshots.
+- `src/App.test.tsx`: the editor end to end against the fake Standard Notes host (start a list, quick add,
+  keyboard triage, Kanban conversion); the rest of the tests sit beside the code they test.
 
 ## Decisions during the build
+
+- 2026-11-25 · **A code fence left open is closed when the note is written.** The reader ignores headings
+  inside fences, so an open fence in a description swallowed every task after it on the next load. Markdown
+  runs an open fence to the end anyway, so closing it at the end of the text shows the same. The text kept
+  from a plain note that became a task list is escaped like a description, so its headings stay text.
+- 2026-11-25 · **The Octarine import is a script, not part of the editor**: it runs once, reads a folder of
+  files the editor can't reach, and would only add weight to every load. It writes a Standard Notes backup
+  holding one Tasks note (Preferences › Backups › Import backup). It reads Octarine's task files as far as
+  the bundled UI shows their shape; the real workspace may differ, so it reports what it skips.
+- 2026-11-25 · **Cycles never close themselves** (as in Octarine): past its end the active cycle reads
+  "Ready to close", and Complete cycle asks where each unfinished task goes (the next cycle by default,
+  or none), keeps the cycle's numbers (planned, done, added, carried over), promotes the upcoming cycle
+  and makes the next.
+- 2026-11-25 · **Workspace vocabulary is renamed everywhere at once**: renaming or deleting a status, label,
+  type, bucket or field updates each task, project, space and type that uses it, as one undoable change.
+  Built-in statuses can be recoloured, not renamed or deleted.
 
 - 2026-11-25 · **Checked inside the real Standard Notes web app** (app.standardnotes.com, offline, no account,
   headless Chromium; `scripts/sn-check.mjs`): installed through Manage Plugins, Standard Notes asked to
@@ -59,3 +85,12 @@ Newest decisions first.
    format 1, Kanban reader, filter language, quick add, operations with undo, merge, bridge and store; 54 tests).
 1. The core loop: built 2026-11-24/25 (sidebar, list, board, table, preview and page, quick add, picker,
    right-click menu, selection bar, keys, undo, overview and project settings basics, phone layout).
+   Checked inside the Standard Notes web app 2026-11-25.
+2. Board, filters, settings, fields and table: built 2026-11-25 (display options per place, saved filters,
+   workspace settings for statuses, labels, types, buckets, custom fields and cycles; fields in the table).
+3. Overview, spaces, cycles and the Octarine import: built 2026-11-25 (space overview, project activity
+   chart and links, cycles with Complete cycle, the import script). The import still needs a check against
+   a real `.octarine` folder.
+
+Not deployed yet: `main` holds only the README; deploying means merging into `main` on his word, then
+turning on GitHub Pages after the first run.

@@ -45,7 +45,7 @@ has text keeps it at the top.
 - **A task** opens beside the list (Space) or as a page (Enter): its description in Markdown with
   checklists, properties, subtasks, comments, and the history of every change.
 - **Quick add** (C) reads `#label`, `!priority` and dates (`fri`, `tomorrow`, `Dec 12`) as you type.
-  Tab completes a word; Backspace right after one keeps it as plain text.
+  Tab completes a word; Backspace right after a date or priority keeps it as plain text.
 - **Filters** (/): `status:todo priority:urgent,high label:docs due:<7d -label:bug is:overdue "exact words"`.
   Terms must all match, commas mean "or", a minus excludes. Keys: status, priority, label, type, bucket,
   cycle, space, project, is, has, due, created, completed, and custom fields by name. Save any search as a

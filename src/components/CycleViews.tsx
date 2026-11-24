@@ -38,7 +38,7 @@ export function CompleteCycleDialog({ cycleId, onClose }: { cycleId: string; onC
   const { state, store } = useApp()
   const ws = state.ws
   const cycle = ws.cycles.find((c) => c.id === cycleId)
-  const upcoming = ws.cycles.filter((c) => c.state === 'upcoming').sort((a, b) => b.start.localeCompare(a.start))
+  const upcoming = ws.cycles.filter((c) => c.state === 'upcoming').sort((a, b) => a.start.localeCompare(b.start))
   const tasks = ws.tasks.filter((t) => t.cycle === cycleId && !t.archived)
   const unfinished = tasks.filter((t) => !isClosed(ws, t))
   const [dest, setDest] = useState<Record<string, string | null>>(() => Object.fromEntries(unfinished.map((t) => [t.id, upcoming[0]?.id ?? null])))
