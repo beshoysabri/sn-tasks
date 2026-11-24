@@ -23,6 +23,15 @@ Newest decisions first.
 
 ## Decisions during the build
 
+- 2026-11-25 · **Checked inside the real Standard Notes web app** (app.standardnotes.com, offline, no account,
+  headless Chromium; `scripts/sn-check.mjs`): installed through Manage Plugins, Standard Notes asked to
+  "Activate Plugin" (Continue), the note opened in Tasks, "Start a task list" made a project, quick add
+  "Fix the signup link #bug !urgent tomorrow" made PET-1 with Bug, Urgent and tomorrow, the toast offered
+  Open, the notes list showed the preview "1 open · 1 due this week", and the note read back as format 1.
+- 2026-11-24 · **Heavy parts load on demand** (board with dnd-kit, table, task view with marked, picker and
+  new-task dialog with chrono) and are fetched 0.8 s after the list appears, so the first C isn't lost.
+  First load 131 KB gzipped (budget 150 KB, checked in CI).
+
 - 2026-11-24 · **A pending save goes out the moment the editor loses focus** (window blur, pagehide, hidden).
   When Standard Notes switches notes the bridge already holds the next note, and a save for the previous one
   would be refused; clicking the notes list blurs the iframe first, so the save lands in time.
@@ -48,4 +57,5 @@ Newest decisions first.
 
 0. Foundations: done 2026-11-24 except the checks inside the Standard Notes web app (repository, CI, model,
    format 1, Kanban reader, filter language, quick add, operations with undo, merge, bridge and store; 54 tests).
-1. The core loop: started.
+1. The core loop: built 2026-11-24/25 (sidebar, list, board, table, preview and page, quick add, picker,
+   right-click menu, selection bar, keys, undo, overview and project settings basics, phone layout).
