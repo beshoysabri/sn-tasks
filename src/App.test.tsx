@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
@@ -82,6 +82,26 @@ describe('the editor inside a fake Standard Notes', () => {
     await hold(0)
     expect(screen.getByRole('menu')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Open page/ })).not.toBeInTheDocument()
+  })
+
+  it('keeps archived projects reachable from the sidebar, so they can be restored', async () => {
+    const user = userEvent.setup()
+    host.openNote(writeNote(demoWorkspace()))
+    render(<App store={store} />)
+    const sidebar = await screen.findByRole('complementary', { name: 'Tasks' })
+    await user.click(within(sidebar).getByRole('button', { name: /Finance/ }))
+    await user.click(screen.getByRole('button', { name: 'Project actions' }))
+    await user.click(screen.getByRole('button', { name: 'Archive project' }))
+    expect(within(sidebar).queryByRole('button', { name: /Finance/ })).not.toBeInTheDocument()
+    await user.click(within(sidebar).getByRole('button', { name: /1 archived/ }))
+    await user.click(within(sidebar).getByRole('button', { name: /Finance/ }))
+    await user.click(screen.getByRole('button', { name: 'Project actions' }))
+    await user.click(screen.getByRole('button', { name: 'Restore project' }))
+    expect(within(sidebar).queryByRole('button', { name: /archived/ })).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(host.saves().length).toBeGreaterThan(0)
+      expect(savedText(host)).not.toMatch(/- Archived: yes/)
+    })
   })
 
   it('makes no network requests', async () => {

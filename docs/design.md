@@ -33,6 +33,12 @@ Newest decisions first.
 
 ## Decisions during the build
 
+- 2026-11-25 · **Archived projects and spaces stay reachable**: the sidebar's "N archived" opens a list of
+  them (and of the projects inside an archived space), so Restore, which lives in their own menus, can be
+  found. Spaces gained Archive / Restore next to Delete.
+- 2026-11-25 · **Activity by status or by label, up to a year**: a year is drawn a week per bar; by label, a
+  task counts under its first label, and beyond the five busiest labels the rest share one colour.
+
 - 2026-11-25 · **Export from Settings › General**: CSV (one row per task, archived ones too; custom fields as
   columns; free text that a spreadsheet would run as a formula gets a leading '), Markdown (the note as saved)
   and JSON (the whole workspace). Checked in the Standard Notes web app: the editor's iframe sandbox has

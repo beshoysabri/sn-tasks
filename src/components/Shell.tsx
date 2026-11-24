@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/preserve-manual-memoization -- the React Compiler isn’t used; these memos only keep list building off hover renders */
-import { Archive, CalendarDays, CircleCheck, CircleSlash, Copy, FolderKanban, Keyboard, Layers, Menu as MenuIcon, MoreHorizontal, PanelLeft, Plus, Search, Settings, Tag, Trash2, X } from 'lucide-react'
+import { Archive, CalendarDays, ChevronRight, CircleCheck, CircleSlash, Copy, FolderKanban, Keyboard, Layers, Menu as MenuIcon, MoreHorizontal, PanelLeft, Plus, Search, Settings, Tag, Trash2, X } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { PROJECT_STATUSES } from '../lib/model/defaults'
 import type { Filter, Task } from '../lib/model/types'
@@ -367,6 +367,7 @@ function Sidebar({ loc, go }: { loc: Location; go: (l: Location) => void }) {
   const [name, setName] = useState('')
   const [addingSpace, setAddingSpace] = useState(false)
   const [spaceName, setSpaceName] = useState('')
+  const [showArchived, setShowArchived] = useState(false)
   const counts = useMemo(() => {
     const open = (t: Task) => !t.archived && !isClosed(ws, t)
     const byProject = new Map<string, number>()
@@ -386,7 +387,13 @@ function Sidebar({ loc, go }: { loc: Location; go: (l: Location) => void }) {
     )
   }
   const shared = ws.filters.filter((f) => !f.project && !f.space)
+  const liveSpaces = new Set(ws.spaces.filter((s) => !s.archived).map((s) => s.id))
   const loose = ws.projects.filter((p) => !p.archived && (!p.space || !ws.spaces.some((s) => s.id === p.space)))
+  // Archived spaces, archived projects, and the projects of an archived space: out of the way, still reachable.
+  const archived = [
+    ...ws.spaces.filter((s) => s.archived).map((item) => ({ kind: 'space' as const, item })),
+    ...ws.projects.filter((p) => p.archived || (p.space && !liveSpaces.has(p.space) && ws.spaces.some((s) => s.id === p.space))).map((item) => ({ kind: 'project' as const, item })),
+  ]
   return (
     <aside className="sidebar" aria-label="Tasks">
       <div className="sb-top">
@@ -488,10 +495,17 @@ function Sidebar({ loc, go }: { loc: Location; go: (l: Location) => void }) {
           <Settings size={14} className="faint" />
           <span className="name">Settings</span>
         </button>
-        {ws.projects.some((p) => p.archived) && (
-          <div className="sb-hint" style={{ paddingTop: 10 }}>
-            <Archive size={12} /> {ws.projects.filter((p) => p.archived).length} archived
-          </div>
+        {archived.length > 0 && (
+          <>
+            <button className="sb-item faint" style={{ marginTop: 4 }} aria-expanded={showArchived} onClick={() => setShowArchived(!showArchived)}>
+              <Archive size={14} />
+              <span className="name">{archived.length} archived</span>
+              <ChevronRight size={13} className={`chev${showArchived ? ' open' : ''}`} aria-hidden />
+            </button>
+            {showArchived && archived.map((x) => x.kind === 'space' ? (
+              <button key={x.item.id} className="sb-item sub" aria-current={loc.kind === 'space' && loc.id === x.item.id ? 'page' : undefined} onClick={() => go({ kind: 'space', id: x.item.id, tab: 'overview' })}><EntityIcon name={x.item.icon} color={x.item.color} size={14} fallback={Layers} /><span className="name">{x.item.name}</span></button>
+            ) : projectRow(x.item.id, true))}
+          </>
         )}
       </div>
     </aside>
@@ -545,6 +559,7 @@ function SpaceMenu({ spaceId, onDeleted }: { spaceId: string; onDeleted: () => v
             ))}
           </div>
           <div className="msep" />
+          <button className="mi" onClick={() => (store.apply(sp.archived ? `Restored ${sp.name}` : `Archived ${sp.name}`, (d) => ops.updateSpace(d, sp.id, { archived: !sp.archived }), 'undo'), setOpen(false))}><Archive size={14} />{sp.archived ? 'Restore space' : 'Archive space'}</button>
           <button className="mi danger" onClick={() => {
             setOpen(false)
             setUi({ confirm: { title: `Delete space ${sp.name}`, body: n ? `Its ${n} project(s) move out of any space, and every task stays.` : 'Its tasks stay, outside any space.', confirm: 'Delete space', danger: true, run: () => (store.apply(`Deleted ${sp.name}`, (d) => ops.deleteSpace(d, sp.id), 'undo'), onDeleted()) } })

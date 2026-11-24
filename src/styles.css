@@ -217,9 +217,9 @@ a { color: var(--accent); }
 .pstrip > span { display: inline-flex; align-items: center; gap: 6px; }
 .banner { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line-2); background: var(--bg-2); border-radius: 8px; padding: 8px 12px; color: var(--fg-2); }
 .banner .acts { margin-left: auto; display: flex; gap: 4px; }
-.desc { color: var(--fg-2); font-size: 14px; line-height: 1.6; min-height: 72px; border-radius: 6px; cursor: text; }
+.desc { color: var(--fg-2); font-size: 14px; line-height: 1.6; border-radius: 6px; cursor: text; }
 .desc:hover { background: color-mix(in srgb, var(--fg) 2.5%, var(--bg)); }
-.desc.placeholder { color: var(--fg-4); }
+.desc.placeholder { color: var(--fg-4); min-height: 72px; }
 .desc p, .desc ul, .desc ol { margin: 0 0 8px; }
 .desc li:has(> input[type='checkbox']) { list-style: none; margin-left: -20px; }
 .desc ul { padding-left: 22px; }

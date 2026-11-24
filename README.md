@@ -53,7 +53,8 @@ has text keeps it at the top.
 - **Cycles**: repeating time boxes of one to four weeks, starting on the weekday you choose. Put tasks in
   the current or the upcoming cycle (Y). When a cycle ends, completing it asks where unfinished work goes
   and keeps its numbers.
-- **Project overview**: progress, an activity chart of the last 7, 30 or 90 days, what's up next, and links.
+- **Project overview**: progress, an activity chart (by status or by label, over 7, 30 or 90 days or a year),
+  what's up next, and links. Archived projects and spaces stay one click away in the sidebar.
 - **Two devices, one note.** Changes from another device are merged task by task. If a task you're
   editing changed elsewhere, you choose: keep mine or discard mine.
 - **Export** (Settings › General) as CSV for a spreadsheet, Markdown, or JSON with everything, in the
