@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
@@ -64,6 +64,45 @@ describe('the editor inside a fake Standard Notes', () => {
     expect(changed).toHaveLength(1)
     expect(changed[0].priority).toBe(priority)
     expect(after.tasks).toHaveLength(before.tasks.length)
+  })
+
+  it('opens the task menu on a long-press, but not when the finger moves', async () => {
+    host.openNote(writeNote(demoWorkspace()))
+    render(<App store={store} />)
+    const row = await waitFor(() => document.querySelector('[data-task-row]')!)
+    const hold = async (move: number) => {
+      fireEvent.pointerDown(row, { pointerType: 'touch', clientX: 50, clientY: 60 })
+      if (move) fireEvent.pointerMove(row, { pointerType: 'touch', clientX: 50, clientY: 60 + move })
+      await act(() => new Promise((resolve) => setTimeout(resolve, 600)))
+      fireEvent.pointerUp(row, { pointerType: 'touch' })
+      if (!move) fireEvent.click(row)
+    }
+    await hold(30)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    await hold(0)
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Open page/ })).not.toBeInTheDocument()
+  })
+
+  it('makes no network requests', async () => {
+    const network = { fetch: vi.fn(), XMLHttpRequest: vi.fn(), WebSocket: vi.fn(), EventSource: vi.fn() }
+    for (const [name, fake] of Object.entries(network)) vi.stubGlobal(name, fake)
+    try {
+      const user = userEvent.setup()
+      host.openNote(writeNote(demoWorkspace()))
+      render(<App store={store} />)
+      await user.keyboard('j')
+      await user.keyboard(' ')
+      expect(await screen.findByRole('button', { name: /Open page/ })).toBeInTheDocument()
+      await user.keyboard('{Escape}')
+      await user.keyboard('c')
+      await user.type(await screen.findByLabelText('Task title'), 'Call the bank tomorrow #admin')
+      await user.keyboard('{Escape}')
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      for (const fake of Object.values(network)) expect(fake).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('opens a Kanban Board note as it is and converts it on the first change', async () => {

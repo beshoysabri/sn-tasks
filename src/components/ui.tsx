@@ -186,6 +186,46 @@ export function ConfirmDialog() {
 }
 
 /** Closes something on Escape or a click outside the element. */
+let pressTimer: ReturnType<typeof setTimeout> | undefined
+let pressAt: { x: number; y: number } | null = null
+let swallowClick = false
+
+/**
+ * Long-press on a touch screen opens a menu (iOS never fires contextmenu). Moving the finger, as in a
+ * scroll, cancels it, and the tap that ends a long-press doesn't also open the task.
+ */
+export function longPress(open: (x: number, y: number) => void) {
+  const cancel = () => {
+    clearTimeout(pressTimer)
+    pressAt = null
+  }
+  return {
+    onPointerDown: (e: React.PointerEvent) => {
+      swallowClick = false
+      if (e.pointerType !== 'touch') return
+      cancel()
+      const at = { x: e.clientX, y: e.clientY }
+      pressAt = at
+      pressTimer = setTimeout(() => {
+        pressAt = null
+        swallowClick = true
+        open(at.x, at.y)
+      }, 500)
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      if (pressAt && Math.hypot(e.clientX - pressAt.x, e.clientY - pressAt.y) > 10) cancel()
+    },
+    onPointerUp: cancel,
+    onPointerCancel: cancel,
+    onClickCapture: (e: React.MouseEvent) => {
+      if (!swallowClick) return
+      swallowClick = false
+      e.preventDefault()
+      e.stopPropagation()
+    },
+  }
+}
+
 export function useDismiss(ref: React.RefObject<HTMLElement | null>, onClose: () => void, active = true) {
   useEffect(() => {
     if (!active) return

@@ -125,6 +125,20 @@ export class Store {
     }
   }
 
+  /** The note's text as last read or saved: what the error fallback shows. */
+  noteText(): string {
+    return this.lastText
+  }
+
+  noteId(): string | null {
+    return this.uuid
+  }
+
+  /** Standard Notes' phone app can't save a file an editor hands it; the desktop and web apps can. */
+  canDownload(): boolean {
+    return this.bridge?.getSnapshot().host.environment !== 'native-mobile-web'
+  }
+
   subscribe = (listener: () => void) => {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)

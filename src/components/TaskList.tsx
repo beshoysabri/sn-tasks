@@ -6,7 +6,7 @@ import { isOverdue } from '../lib/query'
 import type { Group, Row } from '../lib/view'
 import { useApp } from './context'
 import { DueIcon, EntityIcon, PriorityIcon, StatusIcon } from './icons'
-import { createdText, Due, Labels } from './ui'
+import { createdText, Due, Labels, longPress } from './ui'
 
 export function GroupIcon({ group, ws }: { group: Group; ws: Workspace }) {
   const { icon } = group
@@ -52,10 +52,13 @@ export function TaskList({ rows, listKey, onOpen, onCreate }: ListProps) {
     onOpen(task, false)
   }
 
+  const menuAt = (x: number, y: number, task: Task) => {
+    const ids = ui.selection.includes(task.id) ? ui.selection : [task.id]
+    setUi({ menu: { x, y, ids }, focus: task.id })
+  }
   const menu = (e: MouseEvent, task: Task) => {
     e.preventDefault()
-    const ids = ui.selection.includes(task.id) ? ui.selection : [task.id]
-    setUi({ menu: { x: e.clientX, y: e.clientY, ids }, focus: task.id })
+    menuAt(e.clientX, e.clientY, task)
   }
 
   return (
@@ -103,6 +106,7 @@ export function TaskList({ rows, listKey, onOpen, onCreate }: ListProps) {
             data-focused={focused && !context}
             data-checked={checked}
             data-closed={closed || !!task.archived}
+            {...(context ? {} : longPress((x, y) => menuAt(x, y, task)))}
             onMouseMove={() => !context && ui.focus !== task.id && setUi({ focus: task.id })}
             onClick={(e) => click(e, task)}
             onDoubleClick={() => onOpen(task, true)}

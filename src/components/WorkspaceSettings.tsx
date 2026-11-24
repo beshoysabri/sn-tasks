@@ -1,9 +1,10 @@
 import { ArrowDown, ArrowUp, Lock, Plus, Trash2 } from 'lucide-react'
 import { useRef, useState, type ReactNode } from 'react'
 import { CATEGORIES, CATEGORY_NAMES, PALETTE, PRIORITY_NAMES } from '../lib/model/defaults'
-import type { FieldType, Priority, StatusCategory } from '../lib/model/types'
-import { allLabels, labelColour } from '../lib/model/workspace'
+import type { FieldType, Priority, StatusCategory, Workspace } from '../lib/model/types'
+import { allLabels, labelColour, today } from '../lib/model/workspace'
 import { ensureCycles } from '../lib/cycles'
+import { download, fileName, toCsv, toJson, toMarkdown } from '../lib/export'
 import * as s from '../lib/settingsOps'
 import { useApp } from './context'
 import { Layers, Shapes, StatusIcon } from './icons'
@@ -266,9 +267,30 @@ function GeneralPage() {
           <span>Comments <span className="faint" style={{ fontSize: 12.5 }}>— turning this off hides existing comments without deleting them.</span></span>
         </label>
       </div>
+      <h3 className="sect" style={{ margin: '0 0 6px' }}>Export</h3>
+      <div style={card}>
+        {store.canDownload() ? (
+          <div style={{ display: 'grid', gap: 8, padding: 8 }}>
+            <span className="faint" style={{ fontSize: 12.5 }}>Every task, archived ones too. CSV opens in a spreadsheet; Markdown is the note as it is saved; JSON holds everything.</span>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {EXPORTS.map(([label, ext, type, make]) => (
+                <button key={ext} className="btn" onClick={() => download(make(ws), fileName(state.title || 'Tasks', ext, today()), type)}>{label}</button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="faint" style={{ fontSize: 12.5, padding: 8 }}>Export works in the Standard Notes desktop and web apps; the phone app can’t save files from an editor.</div>
+        )}
+      </div>
     </>
   )
 }
+
+const EXPORTS: [string, string, string, (ws: Workspace) => string][] = [
+  ['CSV', 'csv', 'text/csv', toCsv],
+  ['Markdown', 'md', 'text/markdown', toMarkdown],
+  ['JSON', 'json', 'application/json', (ws) => toJson(ws)],
+]
 
 const FIELD_TYPES: [FieldType, string][] = [['text', 'Text'], ['textarea', 'Long text'], ['number', 'Number'], ['date', 'Date'], ['select', 'Select'], ['multiselect', 'Multi-select'], ['url', 'URL'], ['media', 'Links (one per line)'], ['checkbox', 'Checkbox']]
 

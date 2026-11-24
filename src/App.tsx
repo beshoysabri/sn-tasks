@@ -1,7 +1,9 @@
 import { FolderKanban } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { AppContext, INITIAL_UI, makeActions, type AppValue, type Ui } from './components/context'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { Shell } from './components/Shell'
+import { writeNote } from './lib/format/note'
 import type { Task } from './lib/model/types'
 import { THEME_EVENT } from './lib/sn/bridge'
 import type { Store } from './lib/store'
@@ -41,6 +43,23 @@ function Start({ store, other }: { store: Store; other: string | null }) {
   )
 }
 
+function Fallback({ store }: { store: Store }) {
+  let text = store.noteText()
+  if (!text) {
+    try {
+      text = writeNote(store.getSnapshot().ws)
+    } catch {
+      text = ''
+    }
+  }
+  return (
+    <div className="scroll" style={{ padding: '16px 20px' }}>
+      <p className="muted" style={{ marginTop: 0 }}>Something went wrong drawing your tasks. This is the note’s text, read-only; open the note again to retry.</p>
+      <pre className="plain" style={{ whiteSpace: 'pre-wrap', border: '1px solid var(--line)', borderRadius: 8, padding: 12 }}>{text}</pre>
+    </div>
+  )
+}
+
 export default function App({ store }: { store: Store }) {
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot)
   const [ui, setUiState] = useState<Ui>(INITIAL_UI)
@@ -66,7 +85,9 @@ export default function App({ store }: { store: Store }) {
       ) : state.kind === 'empty' || state.kind === 'other' ? (
         <Start store={store} other={state.kind === 'other' ? state.otherText : null} />
       ) : (
-        <Shell />
+        <ErrorBoundary resetKey={store.noteId()} fallback={<Fallback store={store} />}>
+          <Shell />
+        </ErrorBoundary>
       )}
     </AppContext.Provider>
   )

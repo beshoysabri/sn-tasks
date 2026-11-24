@@ -7,7 +7,7 @@ import type { Row } from '../lib/view'
 import { useApp, type PickerKind } from './context'
 import { EntityIcon, PriorityIcon, StatusIcon } from './icons'
 import { GroupIcon } from './TaskList'
-import { createdText, Due, Labels } from './ui'
+import { createdText, Due, Labels, longPress } from './ui'
 
 /** The Table layout (kept from the Kanban Board): a column per property and custom field; click a cell to change it. */
 export function TableView({ rows, listKey, onOpen, showProject }: { rows: Row[]; listKey: string; onOpen: (t: Task, page: boolean) => void; showProject: boolean }) {
@@ -50,7 +50,7 @@ export function TableView({ rows, listKey, onOpen, showProject }: { rows: Row[];
             const s = statusOf(ws, t.status)
             const p = projectOf(ws, t)
             return (
-              <tr key={t.id} data-task-row={t.id} style={{ background: ui.selection.includes(t.id) ? 'var(--selected)' : ui.focus === t.id ? 'var(--hover)' : undefined, opacity: isClosed(ws, t) || t.archived ? 0.6 : 1 }} onMouseMove={() => ui.focus !== t.id && setUi({ focus: t.id })} onContextMenu={(e) => (e.preventDefault(), setUi({ menu: { x: e.clientX, y: e.clientY, ids: ui.selection.includes(t.id) ? ui.selection : [t.id] } }))}>
+              <tr key={t.id} data-task-row={t.id} style={{ background: ui.selection.includes(t.id) ? 'var(--selected)' : ui.focus === t.id ? 'var(--hover)' : undefined, opacity: isClosed(ws, t) || t.archived ? 0.6 : 1 }} {...longPress((x, y) => setUi({ menu: { x, y, ids: ui.selection.includes(t.id) ? ui.selection : [t.id] }, focus: t.id }))} onMouseMove={() => ui.focus !== t.id && setUi({ focus: t.id })} onContextMenu={(e) => (e.preventDefault(), setUi({ menu: { x: e.clientX, y: e.clientY, ids: ui.selection.includes(t.id) ? ui.selection : [t.id] } }))}>
                 <td style={{ ...cell, color: 'var(--fg-4)' }} className="num">{identifier(ws, t)}</td>
                 <td style={cell}><button style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }} onClick={() => pick('status', t)}><StatusIcon category={s.category} color={s.color} />{s.name}</button></td>
                 <td style={{ ...cell, position: 'sticky', left: 0, background: 'var(--bg)', paddingLeft: row.depth ? 30 : 10 }}>

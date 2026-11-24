@@ -1,6 +1,6 @@
 // Runs the built plugin inside the real Standard Notes web app (offline, no account): installs it
 // through Manage Plugins, makes a note, switches it to Tasks (Dev), starts a task list, creates a
-// task with quick add, then reads the note back as plain text. Screenshots and the saved text go to
+// task with quick add, exports it as CSV, then reads the note back as plain text. Screenshots and the saved text go to
 // <outDir> (keep it outside the repo). Needs Chromium (/snap/bin/chromium on bshome).
 // The plugin is served from a fake https origin through page.route, with the CORS headers
 // Standard Notes needs (manifest: origin echoed + credentials; iframe assets: *).
@@ -75,7 +75,7 @@ await page.getByRole('button', { name: 'Continue' }).first().click().catch((e) =
 await page.waitForTimeout(3000)
 await shot('5-editor')
 const frame = page.frameLocator('iframe').first()
-await frame.getByPlaceholder(/First project/).fill('Website').catch((e) => log.push(`first project: ${e.message}`))
+await frame.getByLabel('First project').fill('Website').catch((e) => log.push(`first project: ${e.message}`))
 await frame.getByRole('button', { name: 'Create project' }).click().catch((e) => log.push(`create project: ${e.message}`))
 await page.waitForTimeout(1500)
 await frame.locator('body').press('c').catch(() => {})
@@ -85,6 +85,16 @@ await page.waitForTimeout(300)
 await frame.getByLabel('Task title').press('Enter').catch(() => {})
 await page.waitForTimeout(1500)
 await shot('6-task')
+// Export: the editor's iframe is sandboxed, so check that a CSV download gets out of it.
+log.push(`iframe sandbox: ${await page.locator('iframe').first().getAttribute('sandbox').catch(() => '?')}`)
+await frame.locator('.sidebar .sb-item', { hasText: 'Settings' }).first().click().catch((e) => log.push(`settings: ${e.message}`))
+await page.waitForTimeout(800)
+const download = page.waitForEvent('download', { timeout: 5000 }).catch(() => null)
+await frame.getByRole('button', { name: 'CSV', exact: true }).click().catch((e) => log.push(`csv: ${e.message}`))
+const file = await download
+// The file itself can't be read back here: snap Chromium writes downloads into its own private /tmp.
+log.push(file ? `export: download started, ${file.suggestedFilename()}` : 'export: no download')
+await shot('6b-export')
 // What Standard Notes saved: switch the note to plain text and read it.
 await page.getByRole('button', { name: /Change note type/i }).first().click().catch(() => {})
 await page.waitForTimeout(500)

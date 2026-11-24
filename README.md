@@ -56,8 +56,11 @@ has text keeps it at the top.
 - **Project overview**: progress, an activity chart of the last 7, 30 or 90 days, what's up next, and links.
 - **Two devices, one note.** Changes from another device are merged task by task. If a task you're
   editing changed elsewhere, you choose: keep mine or discard mine.
+- **Export** (Settings › General) as CSV for a spreadsheet, Markdown, or JSON with everything, in the
+  desktop and web apps.
+- **On a phone**: one column, the sidebar as a drawer, a + button, and a long-press on a task for its menu.
 - **Undo** (⌘Z or Ctrl+Z) for every change, and **themes**: it follows your Standard Notes theme, light or
-  dark.
+  dark. If drawing ever fails, you see the note's text instead of a blank editor.
 
 ![The board in a light theme](docs/screenshots/board-light.png)
 

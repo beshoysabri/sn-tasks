@@ -33,6 +33,16 @@ Newest decisions first.
 
 ## Decisions during the build
 
+- 2026-11-25 · **Export from Settings › General**: CSV (one row per task, archived ones too; custom fields as
+  columns; free text that a spreadsheet would run as a formula gets a leading '), Markdown (the note as saved)
+  and JSON (the whole workspace). Checked in the Standard Notes web app: the editor's iframe sandbox has
+  `allow-downloads`, and the CSV download starts. The phone app can't save a file, so there the section says so.
+- 2026-11-25 · **If drawing fails, the note's text shows read-only** (an error boundary around the shell);
+  opening another note tries again.
+- 2026-11-25 · **Long-press opens the task menu in the list and the table** (iOS never fires contextmenu);
+  moving the finger cancels it, and the tap that ends it doesn't also open the task. On the board a
+  long-press starts a drag instead, as before.
+
 - 2026-11-25 · **A code fence left open is closed when the note is written.** The reader ignores headings
   inside fences, so an open fence in a description swallowed every task after it on the next load. Markdown
   runs an open fence to the end anyway, so closing it at the end of the text shows the same. The text kept
