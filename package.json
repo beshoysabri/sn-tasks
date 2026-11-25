@@ -1,7 +1,7 @@
 {
   "name": "sn-tasks",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "description": "Tasks for Standard Notes: projects, a list, a board and a table, with keyboard-first triage, a filter language and quick add, in the spirit of Octarine's task manager.",
   "repository": {

@@ -125,5 +125,8 @@ Newest decisions first.
    chart and links, cycles with Complete cycle, the import script). The import still needs a check against
    a real `.octarine` folder.
 
-Not deployed yet: `main` holds only the README; deploying means merging into `main` on his word, then
-turning on GitHub Pages after the first run.
+Released as 1.0.0 on 2026-11-25 on his word ("deploy once you're done"): `v0.1` merged into `main`, which
+deploys to GitHub Pages (legacy source, the `gh-pages` branch). Before that: the visual review at 390, 768,
+1100 and 1280 px in dark and light (the phone task header was fixed), the in-app check, and his Octarine
+workspace imported into the Standard Notes web app end to end. Later releases: work on a branch, then
+merge on his word.

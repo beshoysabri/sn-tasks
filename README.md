@@ -11,9 +11,6 @@ years from now. The editor makes no network requests.
 
 ![The task list with a task open beside it](docs/screenshots/preview-dark.png)
 
-> Version 0.1.0 is built but not released yet. The install link below starts working with the first
-> release.
-
 ## Install
 
 In the Standard Notes phone or desktop app: **Preferences › Plugins › Install Custom Plugin**, then paste
