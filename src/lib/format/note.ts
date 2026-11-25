@@ -42,7 +42,8 @@ import type {
   TaskType,
   Workspace,
 } from '../model/types'
-import { newId, nextWeekStart, statusOf, today, WEEKDAYS } from '../model/workspace'
+import { identifier, newId, nextWeekStart, statusOf, today, WEEKDAYS } from '../model/workspace'
+import { upNext } from '../query'
 
 export const FORMAT_MARKER = 'tasks: 1'
 const SPACES_OFF = 'Projects'
@@ -649,6 +650,9 @@ export function previewLine(ws: Workspace, todayIso: string): string {
   const dueSoon = open.filter((t) => t.due && t.due < weekIso).length
   const parts = [`${open.length} open`]
   if (dueSoon) parts.push(`${dueSoon} due this week`)
+  // What's next, as the overview's Up next orders it: work in progress first, then by due date and priority.
+  const next = upNext(ws, open)[0]
+  if (next) parts.push(`next ${identifier(ws, next)} ${next.title.length > 48 ? `${next.title.slice(0, 47)}…` : next.title}`)
   return parts.join(' · ')
 }
 

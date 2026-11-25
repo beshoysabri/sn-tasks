@@ -2,13 +2,14 @@ import { ArrowDown, ArrowUp, Lock, Plus, Trash2 } from 'lucide-react'
 import { useRef, useState, type ReactNode } from 'react'
 import { CATEGORIES, CATEGORY_NAMES, PALETTE, PRIORITY_NAMES } from '../lib/model/defaults'
 import type { FieldType, Priority, StatusCategory, Workspace } from '../lib/model/types'
-import { allLabels, labelColour, today, WEEKDAYS } from '../lib/model/workspace'
+import { allLabels, identifier, labelColour, today, WEEKDAYS } from '../lib/model/workspace'
+import { writeNote } from '../lib/format/note'
 import { ensureCycles } from '../lib/cycles'
 import { download, fileName, toCsv, toJson, toMarkdown } from '../lib/export'
 import * as s from '../lib/settingsOps'
 import { useApp } from './context'
 import { Layers, Shapes, StatusIcon } from './icons'
-import { useDismiss } from './ui'
+import { copyText, useDismiss } from './ui'
 
 const PAGES = [
   ['general', 'General'],
@@ -290,6 +291,51 @@ function GeneralPage() {
         ) : (
           <div className="faint" style={{ fontSize: 12.5, padding: 8 }}>Export works in the Standard Notes desktop and web apps; the phone app can’t save files from an editor.</div>
         )}
+      </div>
+      <MergeFromText />
+    </>
+  )
+}
+
+/** Merge from text: the way back from a conflicted copy Standard Notes made of this note. */
+function MergeFromText() {
+  const { state, store, setUi } = useApp()
+  const [text, setText] = useState('')
+  const [result, setResult] = useState<{ message: string; conflicts: string[] } | null>(null)
+  const merge = () => {
+    const before = new Set(state.conflicts.map((c) => c.id))
+    const r = store.mergeText(text)
+    if (!r.ok) return setResult({ message: r.reason, conflicts: [] })
+    setText('')
+    if (!r.added && !r.updated && !r.conflicts) return setResult({ message: 'Nothing to bring back: this note already has everything in that text.', conflicts: [] })
+    const fresh = store.getSnapshot().conflicts.filter((c) => c.from === 'copy' && !before.has(c.id)).map((c) => c.id)
+    const parts = [r.added && `${r.added} task${r.added === 1 ? '' : 's'} came back`, r.updated && `${r.updated} took changes from the copy`].filter(Boolean)
+    setResult({ message: `${parts.join('; ') || 'Done'}.${fresh.length ? ' The copy has a different title or description for these; open one to choose:' : ''}`, conflicts: fresh })
+  }
+  const copy = () => store.toast(copyText(writeNote(state.ws)) ? 'Copied this note’s text.' : 'Couldn’t copy here. Switch the note to Plain text and copy it there.')
+  const ws = store.getSnapshot().ws
+  return (
+    <>
+      <h3 className="sect" style={{ margin: '0 0 6px' }}>Conflicted copies</h3>
+      <div style={card}>
+        <div style={{ display: 'grid', gap: 8, padding: 8 }}>
+          <span className="faint" style={{ fontSize: 12.5 }}>
+            If Standard Notes makes a conflicted copy of this note, bring its work back: open the copy, come here and tap Copy this note’s text; then open this note, paste it below and tap Merge. Tasks and comments only the copy has come back; where both changed a task, the later edit wins.
+          </span>
+          <div><button className="btn" onClick={copy}>Copy this note’s text</button></div>
+          <textarea aria-label="Text of a conflicted copy" placeholder="Paste a copy’s text" rows={4} value={text} readOnly={state.locked} onChange={(e) => setText(e.target.value)}
+            style={{ width: '100%', border: '1px solid var(--line-2)', borderRadius: 6, padding: '6px 8px', background: 'var(--bg)', font: '12.5px/1.5 var(--mono)', resize: 'vertical' }} />
+          <div><button className="btn primary" disabled={!text.trim() || state.locked} onClick={merge}>Merge</button></div>
+          {result && (
+            <div role="status" style={{ fontSize: 12.5 }}>
+              {result.message}
+              {result.conflicts.map((id) => {
+                const t = ws.tasks.find((x) => x.id === id)
+                return t ? <button key={id} className="btn ghost" style={{ marginLeft: 6 }} onClick={() => setUi({ page: id, focus: id })}>{identifier(ws, t)}</button> : null
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </>
   )

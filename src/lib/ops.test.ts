@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { demoWorkspace } from '../sample/demo'
 import { findByIdentifier, identifier } from './model/workspace'
-import { addComment, archiveTasks, createTask, deleteTasks, moveToProject, run, setParent, setStatus, toggleDone, undo } from './ops'
+import { addComment, archiveTasks, createTask, deleteTasks, moveProject, moveToProject, run, setParent, setStatus, toggleDone, undo } from './ops'
 
 const NOW = '2026-11-24T15:00Z'
 const byId = (ws: ReturnType<typeof demoWorkspace>, id: string) => findByIdentifier(ws, id)!
@@ -78,5 +78,35 @@ describe('operations', () => {
     const result = run(ws, 'Nothing', () => {}, NOW)
     expect(result.ws).toBe(ws)
     expect(result.change).toBeNull()
+  })
+})
+
+describe('project order', () => {
+  it('moves a project among its group, and undo and redo put the order back', () => {
+    const ws = demoWorkspace()
+    const names = (w: typeof ws) => w.projects.map((p) => p.name)
+    const loose = ws.projects.filter((p) => !p.space).map((p) => p.id)
+    expect(loose.length).toBeGreaterThan(0)
+    const first = ws.projects[0]
+    const last = ws.projects[ws.projects.length - 1]
+    const moved = run(ws, 'Moved', (d) => moveProject(d, last.id, first.id))
+    expect(moved.change?.projectOrder).toEqual(ws.projects.map((p) => p.id))
+    expect(names(moved.ws)[0]).toBe(last.name)
+    const back = undo(moved.ws, moved.change!)
+    expect(names(back.ws)).toEqual(names(ws))
+    expect(names(undo(back.ws, back.change).ws)).toEqual(names(moved.ws))
+    // Moving a project before itself changes nothing.
+    expect(run(ws, 'Nothing', (d) => moveProject(d, first.id, first.id)).change).toBeNull()
+  })
+
+  it('moves a project to the end of its own space with null', () => {
+    const ws = demoWorkspace()
+    const spaced = ws.projects.filter((p) => p.space)
+    const space = spaced[0].space
+    const group = ws.projects.filter((p) => p.space === space)
+    const { ws: next } = run(ws, 'Moved', (d) => moveProject(d, group[0].id, null))
+    const after = next.projects.filter((p) => p.space === space).map((p) => p.id)
+    expect(after[after.length - 1]).toBe(group[0].id)
+    expect(next.projects).toHaveLength(ws.projects.length)
   })
 })

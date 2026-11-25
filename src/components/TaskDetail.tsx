@@ -129,9 +129,9 @@ export function TaskDetail({ task, mode, index, total, onClose, onStep, onOpenPa
             )}
             {conflict && (
               <div className="banner" role="alert">
-                This task changed elsewhere. Your edits here aren’t saved yet.
+                {conflict.from === 'copy' ? 'The pasted copy has a different title or description for this task.' : 'This task changed elsewhere. Your edits here aren’t saved yet.'}
                 <span className="acts">
-                  <button className="btn ghost" onClick={() => store.resolveConflict(task.id, false)}>Discard mine</button>
+                  <button className="btn ghost" onClick={() => store.resolveConflict(task.id, false)}>{conflict.from === 'copy' ? 'Use the copy’s' : 'Discard mine'}</button>
                   <button className="btn" onClick={() => store.resolveConflict(task.id, true)}>Keep mine</button>
                 </span>
               </div>

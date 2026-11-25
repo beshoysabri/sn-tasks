@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { demoWorkspace } from '../../sample/demo'
 import { emptyWorkspace } from '../model/defaults'
-import { escapeBody, readNote, unescapeBody, writeNote } from './note'
+import { escapeBody, previewLine, readNote, unescapeBody, writeNote } from './note'
 
 describe('format 1', () => {
   it('writes and reads back the same workspace', () => {
@@ -91,6 +91,13 @@ describe('format 1', () => {
     expect(back.settings.weekStart).toBe(6)
     expect(back.cycleSettings).toEqual({ enabled: false, weeks: 3, startDay: 6 })
     expect(writeNote(emptyWorkspace())).not.toMatch(/week-starts|cycles:/)
+  })
+
+  it('sums the note up for the notes list, with what is next', () => {
+    const ws = demoWorkspace()
+    const line = previewLine(ws, '2026-11-24')
+    expect(line).toMatch(/^\d+ open · \d+ due this week · next WEB-\d+ \S/)
+    expect(previewLine(emptyWorkspace(), '2026-11-24')).toBe('0 open')
   })
 
   it('escapes and unescapes losslessly', () => {

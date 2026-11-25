@@ -27,6 +27,8 @@ export interface Change {
   tasks: Map<string, Task | null>
   projects: Map<string, Project | null>
   collections: Partial<Collections>
+  /** The projects' order before, when an operation reordered them. */
+  projectOrder?: string[]
 }
 
 export class Draft {
@@ -86,6 +88,14 @@ export class Draft {
     this.projectOrder = this.projectOrder.filter((x) => x !== id)
   }
 
+  /** Puts the projects in this order (ids not listed keep their place at the end). */
+  orderProjects(ids: string[]) {
+    if (!this.change.projectOrder) this.change.projectOrder = [...this.projectOrder]
+    const known = new Set(this.projectOrder)
+    const listed = ids.filter((id) => known.has(id))
+    this.projectOrder = [...listed, ...this.projectOrder.filter((id) => !listed.includes(id))]
+  }
+
   set<K extends keyof Collections>(key: K, value: Collections[K]) {
     if (!(key in this.change.collections)) (this.change.collections as Record<string, unknown>)[key] = this.base[key]
     this.collections[key] = value
@@ -107,7 +117,9 @@ export function run(ws: Workspace, label: string, op: (d: Draft) => void, now?: 
   const draft = new Draft(ws, label, now)
   op(draft)
   const { ws: next, change } = draft.finish()
-  const touched = change.tasks.size || change.projects.size || Object.keys(change.collections).length
+  const reordered = !!change.projectOrder && change.projectOrder.join() !== next.projects.map((p) => p.id).join()
+  if (!reordered) delete change.projectOrder
+  const touched = change.tasks.size || change.projects.size || Object.keys(change.collections).length || reordered
   return { ws: touched ? next : ws, change: touched ? change : null }
 }
 
@@ -123,6 +135,7 @@ export function undo(ws: Workspace, change: Change): { ws: Workspace; change: Ch
     else draft.removeProject(id)
   }
   for (const [key, value] of Object.entries(change.collections)) draft.set(key as keyof Collections, value as never)
+  if (change.projectOrder) draft.orderProjects(change.projectOrder)
   return draft.finish()
 }
 
@@ -354,6 +367,24 @@ export function createProject(d: Draft, input: { name: string; space?: string; k
   }
   d.putProject(project)
   return project
+}
+
+/**
+ * Moves a project before another one (or to the end of its group with null). Projects keep the
+ * space they're in; the sidebar and the note list them in this order.
+ */
+export function moveProject(d: Draft, id: string, beforeId: string | null) {
+  const order = d.ws.projects.map((p) => p.id).filter((x) => x !== id)
+  if (!d.projects.has(id) || id === beforeId) return
+  const at = beforeId ? order.indexOf(beforeId) : -1
+  if (beforeId && at < 0) return
+  if (at < 0) {
+    // To the end of its own group: after the last project sharing its space.
+    const space = d.projects.get(id)!.space
+    const last = order.map((x) => d.projects.get(x)!).filter((p) => p.space === space).pop()
+    order.splice(last ? order.indexOf(last.id) + 1 : order.length, 0, id)
+  } else order.splice(at, 0, id)
+  d.orderProjects(order)
 }
 
 export function updateProject(d: Draft, id: string, patch: Partial<Project>) {

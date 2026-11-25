@@ -8,7 +8,7 @@
  */
 import { isKanbanNote, readKanban } from './format/kanban'
 import { previewLine, readNote, writeNote } from './format/note'
-import { merge, same } from './merge'
+import { merge, mergeCopy, same } from './merge'
 import { seededWorkspace } from './model/defaults'
 import type { Workspace } from './model/types'
 import { deriveKey, newId, nowStamp, today } from './model/workspace'
@@ -68,7 +68,11 @@ export interface Toast {
 export interface Conflict {
   id: string
   remote: { title: string; description: string }
+  /** Where the other text came from: another device, or a copy pasted into Merge from text. */
+  from?: 'copy'
 }
+
+export type MergeTextResult = { ok: true; added: number; updated: number; conflicts: number } | { ok: false; reason: string }
 
 export interface StoreState {
   kind: NoteKind
@@ -298,6 +302,40 @@ export class Store {
     this.set({ kind: 'tasks', ws, view: { ...this.state.view, location: { kind: 'project', id, tab: 'tasks' } } })
     this.dirty = true
     this.flush()
+  }
+
+  /**
+   * Merge from text: the text of a conflicted copy, pasted in, brings back what only the copy has
+   * (see mergeCopy). One undoable change; differing titles and descriptions are offered as conflicts.
+   */
+  mergeText(text: string): MergeTextResult {
+    if (this.state.locked) return { ok: false, reason: 'This note is locked, so it can’t be changed.' }
+    if (this.state.kind !== 'tasks' && this.state.kind !== 'kanban') return { ok: false, reason: 'Start a task list first.' }
+    const read = readNote(text.trim())
+    if (read.kind !== 'tasks') {
+      return { ok: false, reason: isKanbanNote(text) ? 'That is a Kanban Board note: open it in Tasks first, then copy its text from there.' : 'That isn’t the text of a Tasks note.' }
+    }
+    const current = this.state.ws
+    const result = mergeCopy(current, read.workspace)
+    const conflicts = result.conflicts.length
+    if (!result.added && !result.updated && !conflicts && same(result.ws, current)) return { ok: true, added: 0, updated: 0, conflicts: 0 }
+    const before = new Map(current.tasks.map((t) => [t.id, t]))
+    const projectsBefore = new Map(current.projects.map((p) => [p.id, p]))
+    const parts = [
+      result.added && `${result.added} task${result.added === 1 ? '' : 's'} back`,
+      result.updated && `${result.updated} updated`,
+      conflicts && `${conflicts} to choose`,
+    ].filter(Boolean)
+    this.apply('Merged from text', (d) => {
+      for (const t of result.ws.tasks) if (!same(before.get(t.id), t)) d.putTask(t)
+      for (const p of result.ws.projects) if (!same(projectsBefore.get(p.id), p)) d.putProject(p)
+      for (const key of ['settings', 'statuses', 'labels', 'types', 'buckets', 'fields', 'filters', 'cycles', 'spaces'] as const) {
+        if (!same(current[key], result.ws[key])) d.set(key, result.ws[key] as never)
+      }
+    }, { text: `Merged: ${parts.join(', ') || 'labels and settings'}.`, action: { label: 'Undo', run: () => this.undo() } })
+    const known = new Set(this.state.conflicts.map((c) => c.id))
+    this.set({ conflicts: [...this.state.conflicts, ...result.conflicts.filter((c) => !known.has(c.id)).map((c) => ({ ...c, from: 'copy' as const }))] })
+    return { ok: true, added: result.added, updated: result.updated, conflicts }
   }
 
   /** "Keep mine": the local text stays and is saved. "Discard mine": take the other device's text. */

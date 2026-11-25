@@ -1,7 +1,7 @@
 {
   "name": "sn-tasks",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "description": "Tasks for Standard Notes: projects, a list, a board and a table, with keyboard-first triage, a filter language and quick add, in the spirit of Octarine's task manager.",
   "repository": {
@@ -31,7 +31,6 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@tanstack/react-virtual": "^3.14.28",
     "chrono-node": "^2.10.3",
     "lucide-react": "^1.79.0",
     "marked": "^15.0.12",

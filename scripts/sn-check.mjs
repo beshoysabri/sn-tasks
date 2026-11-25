@@ -13,7 +13,7 @@ const [distDir, outDir] = process.argv.slice(2)
 const ORIGIN = 'https://tasks-dev.example'
 const manifest = {
   identifier: 'com.beshoysabri.sn-tasks.dev', name: 'Tasks (Dev)', content_type: 'SN|Component', area: 'editor-editor',
-  note_type: 'markdown', file_type: 'md', version: '1.0.0', description: 'dev', url: `${ORIGIN}/index.html`,
+  note_type: 'markdown', file_type: 'md', version: '1.1.0', description: 'dev', url: `${ORIGIN}/index.html`,
 }
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' }
 const log = []

@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/preserve-manual-memoization -- the React Compiler isn’t used; these memos only keep list building off hover renders */
-import { Archive, CalendarDays, ChevronRight, CircleCheck, CircleSlash, Copy, FolderKanban, Keyboard, Layers, Menu as MenuIcon, MoreHorizontal, PanelLeft, Plus, Search, Settings, Tag, Trash2, X } from 'lucide-react'
+import { Archive, ArrowDown, ArrowUp, CalendarDays, ChevronRight, CircleCheck, CircleSlash, Copy, FolderKanban, Keyboard, Layers, Menu as MenuIcon, MoreHorizontal, PanelLeft, Plus, Search, Settings, Tag, Trash2, X } from 'lucide-react'
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { PROJECT_STATUSES } from '../lib/model/defaults'
 import type { Filter, Task } from '../lib/model/types'
@@ -216,7 +216,7 @@ export function Shell() {
           <DisplayMenu options={display} onChange={(p) => store.setDisplay(key, p)} allowProject={showProject} />
         </div>
         {display.layout === 'board' ? (
-          <div className="scroll" style={{ overflowX: display.wrap ? 'hidden' : 'auto' }}>
+          <div className={`scroll${display.wrap ? '' : ' board-scroll'}`} style={{ overflowX: display.wrap ? 'hidden' : 'auto' }}>
             <Board columns={boardCols} display={display} onOpen={openTask} onCreate={createDefaults} />
           </div>
         ) : empty ? (
@@ -368,6 +368,8 @@ function Sidebar({ loc, go }: { loc: Location; go: (l: Location) => void }) {
   const [addingSpace, setAddingSpace] = useState(false)
   const [spaceName, setSpaceName] = useState('')
   const [showArchived, setShowArchived] = useState(false)
+  // Dragging a project in the sidebar (desktop; on touch, Move up / Move down in its menu).
+  const [drag, setDrag] = useState<{ id: string; over?: string; after?: boolean } | null>(null)
   const counts = useMemo(() => {
     const open = (t: Task) => !t.archived && !isClosed(ws, t)
     const byProject = new Map<string, number>()
@@ -378,8 +380,37 @@ function Sidebar({ loc, go }: { loc: Location; go: (l: Location) => void }) {
   const current = (l: Location) => JSON.stringify(l) === JSON.stringify(loc) || (l.kind === 'project' && loc.kind === 'project' && l.id === loc.id)
   const projectRow = (id: string, sub = false) => {
     const p = ws.projects.find((x) => x.id === id)!
+    const dragged = drag ? ws.projects.find((x) => x.id === drag.id) : undefined
+    const canDrop = !!dragged && dragged.id !== p.id && dragged.space === p.space && dragged.archived === p.archived
+    const drop = () => {
+      if (!drag || !canDrop) return
+      const group = ws.projects.filter((x) => x.space === p.space && x.archived === p.archived && x.id !== drag.id)
+      const before = drag.after ? (group[group.findIndex((x) => x.id === p.id) + 1]?.id ?? null) : p.id
+      store.apply(`Moved ${dragged!.name}`, (d) => ops.moveProject(d, drag.id, before))
+    }
     return (
-      <button key={p.id} className={`sb-item${sub ? ' sub' : ''}`} aria-current={current({ kind: 'project', id: p.id, tab: 'tasks' }) ? 'page' : undefined} onClick={() => go({ kind: 'project', id: p.id, tab: loc.kind === 'project' && loc.id === p.id ? loc.tab : 'tasks' })}>
+      <button key={p.id} className={`sb-item${sub ? ' sub' : ''}`} aria-current={current({ kind: 'project', id: p.id, tab: 'tasks' }) ? 'page' : undefined} onClick={() => go({ kind: 'project', id: p.id, tab: loc.kind === 'project' && loc.id === p.id ? loc.tab : 'tasks' })}
+        draggable={!state.locked}
+        data-drop={drag?.over === p.id ? (drag.after ? 'after' : 'before') : undefined}
+        onDragStart={(e) => {
+          e.dataTransfer.effectAllowed = 'move'
+          e.dataTransfer.setData('text/plain', p.name)
+          setDrag({ id: p.id })
+        }}
+        onDragOver={(e) => {
+          if (!canDrop) return
+          e.preventDefault()
+          const r = e.currentTarget.getBoundingClientRect()
+          const after = e.clientY > r.top + r.height / 2
+          if (drag?.over !== p.id || drag.after !== after) setDrag({ id: drag!.id, over: p.id, after })
+        }}
+        onDragLeave={() => drag?.over === p.id && setDrag({ id: drag.id })}
+        onDrop={(e) => {
+          e.preventDefault()
+          drop()
+          setDrag(null)
+        }}
+        onDragEnd={() => setDrag(null)}>
         <EntityIcon name={p.icon} color={p.color} size={14} />
         <span className="name">{p.name}</span>
         <span className="count num">{counts.byProject.get(p.id) ?? ''}</span>
@@ -520,6 +551,10 @@ function ProjectMenu({ projectId, onDeleted }: { projectId: string; onDeleted: (
   const p = state.ws.projects.find((x) => x.id === projectId)
   if (!p) return null
   const n = state.ws.tasks.filter((t) => t.project === p.id).length
+  // Its neighbours in the sidebar: the projects of the same space (or of none), as listed.
+  const group = state.ws.projects.filter((x) => x.space === p.space && x.archived === p.archived)
+  const at = group.findIndex((x) => x.id === p.id)
+  const move = (before: string | null) => (store.apply(`Moved ${p.name}`, (d) => ops.moveProject(d, p.id, before)), setOpen(false))
   return (
     <div style={{ position: 'relative' }} ref={ref}>
       <button className="icon-btn" aria-label="Project actions" onClick={() => setOpen(!open)}><MoreHorizontal size={15} /></button>
@@ -527,6 +562,12 @@ function ProjectMenu({ projectId, onDeleted }: { projectId: string; onDeleted: (
         <div className="menu" style={{ position: 'absolute', top: 32, left: 0 }}>
           <button className="mi" onClick={() => (copyText(`${p.key} · ${p.name}`), setOpen(false), store.toast('Copied'))}><Copy size={14} />Copy key</button>
           <button className="mi" onClick={() => (store.apply(p.status === 'completed' ? `Reopened ${p.name}` : `Completed ${p.name}`, (d) => ops.updateProject(d, p.id, { status: p.status === 'completed' ? 'in-progress' : 'completed' }), 'undo'), setOpen(false))}><CircleCheck size={14} />{p.status === 'completed' ? 'Reopen project' : 'Mark project completed'}</button>
+          {!state.locked && group.length > 1 && (
+            <>
+              <button className="mi" disabled={at <= 0} onClick={() => move(group[at - 1].id)}><ArrowUp size={14} />Move up</button>
+              <button className="mi" disabled={at >= group.length - 1} onClick={() => move(group[at + 2]?.id ?? null)}><ArrowDown size={14} />Move down</button>
+            </>
+          )}
           <div className="msep" />
           <button className="mi" onClick={() => (store.apply(p.archived ? `Restored ${p.name}` : `Archived ${p.name}`, (d) => ops.updateProject(d, p.id, { archived: !p.archived }), 'undo'), setOpen(false))}><Archive size={14} />{p.archived ? 'Restore project' : 'Archive project'}</button>
           <button className="mi danger" onClick={() => {

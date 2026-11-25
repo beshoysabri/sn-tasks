@@ -33,6 +33,21 @@ Newest decisions first.
 
 ## Decisions during the build
 
+- 2026-11-25 · **Merge from text** (Settings › General › Conflicted copies): a conflicted copy has no common
+  base with the note, so it is merged without one and takes nothing away. What only the copy has comes back
+  (tasks, projects, spaces, labels, types, buckets, fields, filters, cycles); for a task on both sides the
+  later `updated` wins field by field, history and comments are joined, aliases united, and a differing
+  title or description keeps the note's text and is offered in the task ("Use the copy's" / "Keep mine").
+  A task the copy brings back moves up to the next free number if its own is taken. One undoable change.
+  The copy's text comes from its own "Copy this note's text" button, so no switching to Plain text, phones
+  included. A task deleted here but still in the copy comes back: losing nothing beats a clean delete.
+- 2026-11-25 · **Projects are reordered by dragging in the sidebar** (the browser's own drag and drop: dnd-kit
+  would put 12 KB on the first load) **or with Move up / Move down** in the project's menu (touch). The order
+  is the note's order; undo puts it back (a change remembers the order it replaced).
+- 2026-11-25 · The notes-list preview ends with what's next (`next WEB-14 Fix the signup link`), in the
+  overview's Up next order. On phones the board snaps a column at a time (the snap now sits on the element
+  that scrolls). `@tanstack/react-virtual` was never used and is gone.
+
 - 2026-11-25 · **The first day of the week is a setting** (Saturday, Sunday or Monday; `week-starts: Sunday`
   in the note, written only when it isn't Monday). "This week" (due groups, `due:this-week`, the Due this week
   filter, the note's preview line) runs to the day before the next week starts; `due:this-week` includes
@@ -128,5 +143,6 @@ Newest decisions first.
 Released as 1.0.0 on 2026-11-25 on his word ("deploy once you're done"): `v0.1` merged into `main`, which
 deploys to GitHub Pages (legacy source, the `gh-pages` branch). Before that: the visual review at 390, 768,
 1100 and 1280 px in dark and light (the phone task header was fixed), the in-app check, and his Octarine
-workspace imported into the Standard Notes web app end to end. Later releases: work on a branch, then
-merge on his word.
+workspace imported into the Standard Notes web app end to end. 1.1.0 the same day, on his "Continue"
+(still under "deploy once you're done"): Merge from text, project order, the preview line's next task, the
+board's phone snap. Later releases: work on a branch, then merge on his word.

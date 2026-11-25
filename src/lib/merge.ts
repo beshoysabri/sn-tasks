@@ -116,6 +116,90 @@ export function merge(base: Workspace, local: Workspace, remote: Workspace): Mer
   return { ws, conflicts }
 }
 
+export interface CopyResult extends MergeResult {
+  /** Tasks only the copy had, now back. */
+  added: number
+  /** Tasks both had that took something from the copy. */
+  updated: number
+}
+
+const historyKey = (h: Task['history'][number]) => JSON.stringify([h.at, h.kind, h.from, h.to, h.text])
+
+/** Both sides' history and comments, each once, oldest first. */
+function joinHistory(a: Task['history'], b: Task['history']): Task['history'] {
+  const seen = new Set<string>()
+  return [...a, ...b]
+    .filter((h) => {
+      const key = historyKey(h)
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .sort((x, y) => x.at.localeCompare(y.at))
+}
+
+/**
+ * Merge from text: a conflicted copy Standard Notes made has no common base with this note, so nothing
+ * is taken away. What only the copy has comes back (tasks, projects, spaces, labels and the rest). For a
+ * task both have, the side edited later wins field by field, comments and history from both are kept,
+ * and a title or description that differs keeps this note's text and is reported as a conflict. A task
+ * the copy brings back whose number is taken here moves up to the next free number.
+ */
+export function mergeCopy(local: Workspace, copy: Workspace): CopyResult {
+  const conflicts: MergeResult['conflicts'] = []
+  const fromCopy = new Map(copy.tasks.map((t) => [t.id, t]))
+  let updated = 0
+  const tasks = local.tasks.map((l) => {
+    const r = fromCopy.get(l.id)
+    if (!r || same(l, r)) return l
+    const localLater = l.updated >= r.updated
+    const out = { ...l } as Record<string, unknown>
+    for (const k of new Set([...Object.keys(l), ...Object.keys(r)]) as Set<keyof Task & string>) {
+      const lv = l[k]
+      const rv = r[k]
+      if (same(lv, rv) || k === 'title' || k === 'description') continue
+      if (k === 'history') out.history = joinHistory(l.history, r.history)
+      else if (k === 'aliases') out.aliases = [...new Set([...l.aliases, ...r.aliases])]
+      else if (k === 'fields') {
+        const fields: Record<string, string> = { ...r.fields, ...l.fields }
+        if (!localLater) for (const [id, v] of Object.entries(r.fields)) fields[id] = v
+        out.fields = fields
+      } else out[k] = localLater ? lv : rv
+    }
+    if (l.title !== r.title || l.description !== r.description) conflicts.push({ id: l.id, remote: { title: r.title, description: r.description } })
+    const merged = out as unknown as Task
+    if (!same(merged, l)) updated++
+    return merged
+  })
+  const localIds = new Set(local.tasks.map((t) => t.id))
+  const added = copy.tasks.filter((t) => !localIds.has(t.id))
+  tasks.push(...added)
+
+  const union = <T>(mine: T[], theirs: T[], key: (x: T) => string) => {
+    const have = new Set(mine.map(key))
+    return [...mine, ...theirs.filter((x) => !have.has(key(x)))]
+  }
+  const copyProjects = new Map(copy.projects.map((p) => [p.id, p]))
+  const projects = union(local.projects.map((p) => ({ ...p, next: Math.max(p.next, copyProjects.get(p.id)?.next ?? 0) })), copy.projects, (p) => p.id)
+  const ws: Workspace = {
+    ...local,
+    settings: { ...local.settings, noProjectNext: Math.max(local.settings.noProjectNext, copy.settings.noProjectNext) },
+    statuses: union(local.statuses, copy.statuses, (x) => x.id),
+    labels: union(local.labels, copy.labels, (x) => x.name.toLowerCase()),
+    types: union(local.types, copy.types, (x) => x.id),
+    buckets: union(local.buckets, copy.buckets, (x) => x.id),
+    fields: union(local.fields, copy.fields, (x) => x.id),
+    filters: union(local.filters, copy.filters, (x) => x.id),
+    cycles: union(local.cycles, copy.cycles, (x) => x.id),
+    spaces: union(local.spaces, copy.spaces, (x) => x.id),
+    projects,
+    tasks,
+  }
+  // This note's tasks keep their numbers; one the copy brings back moves up if its number is taken.
+  renumberCollisions(ws, localIds)
+  return { ws, conflicts, added: added.length, updated }
+}
+
 /** Two tasks created on two devices can share a number; the one only this device has moves up. */
 function renumberCollisions(ws: Workspace, remoteIds: Set<string>) {
   const groups = new Map<string, Task[]>()

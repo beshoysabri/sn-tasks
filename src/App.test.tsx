@@ -4,6 +4,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import App from './App'
 import { readNote, writeNote } from './lib/format/note'
 import type { Priority } from './lib/model/types'
+import { createTask, run } from './lib/ops'
 import { Store } from './lib/store'
 import { demoWorkspace } from './sample/demo'
 import { FakeStandardNotes } from './test/fakeStandardNotes'
@@ -110,6 +111,23 @@ describe('the editor inside a fake Standard Notes', () => {
     await user.click(within(sidebar).getByRole('button', { name: /Settings/ }))
     await user.selectOptions(await screen.findByLabelText('Week starts on'), 'Sunday')
     await waitFor(() => expect(savedText(host)).toContain('\nweek-starts: Sunday\n'))
+  })
+
+  it('brings back a conflicted copy’s work with Merge from text, undoably', async () => {
+    const user = userEvent.setup()
+    const start = demoWorkspace()
+    host.openNote(writeNote(start))
+    const copy = run(start, 'phone', (d) => createTask(d, { title: 'Written on the phone', project: 'website' }, 'phone01')).ws
+    render(<App store={store} />)
+    const sidebar = await screen.findByRole('complementary', { name: 'Tasks' })
+    await user.click(within(sidebar).getByRole('button', { name: /Settings/ }))
+    await user.click(await screen.findByLabelText('Text of a conflicted copy'))
+    await user.paste(writeNote(copy))
+    await user.click(screen.getByRole('button', { name: 'Merge' }))
+    expect(await screen.findByText(/1 task came back/)).toBeInTheDocument()
+    await waitFor(() => expect(savedText(host)).toContain(' Written on the phone\n'))
+    await user.click(screen.getByRole('button', { name: 'Undo' }))
+    await waitFor(() => expect(savedText(host)).not.toContain('Written on the phone'))
   })
 
   it('makes no network requests', async () => {

@@ -30,7 +30,8 @@ has text keeps it at the top.
 
 - **Projects and spaces.** A project has a key, so its tasks are WEB-1, WEB-2 and so on. A task that
   moves to another project gets a new ID, and its old one still finds it. Spaces group projects (Work,
-  Home) and have an overview of their own. Tasks can also live outside any project.
+  Home) and have an overview of their own. Tasks can also live outside any project. Drag projects in the
+  sidebar to reorder them (on a phone: Move up or Move down in the project's menu).
 - **Statuses** in six categories (backlog, unstarted, started, review, completed, cancelled): Backlog,
   Todo, In progress, In review, Done and Cancelled, plus your own. **Priorities** from urgent to low,
   **labels**, **types** (Bug, Feature… each can add labels and a priority), **buckets** (Now, Next, Later)
@@ -53,7 +54,9 @@ has text keeps it at the top.
 - **Project overview**: progress, an activity chart (by status or by label, over 7, 30 or 90 days or a year),
   what's up next, and links. Archived projects and spaces stay one click away in the sidebar.
 - **Two devices, one note.** Changes from another device are merged task by task. If a task you're
-  editing changed elsewhere, you choose: keep mine or discard mine.
+  editing changed elsewhere, you choose: keep mine or discard mine. If Standard Notes still makes a
+  conflicted copy, Settings › General › Conflicted copies brings the copy's work back: tasks and comments
+  only the copy has return, the later edit wins, and you pick between two titles or descriptions.
 - **Your week**: Settings › General sets the day weeks start on (Saturday, Sunday or Monday). It decides
   "This week" for due dates and the Due this week filter, "Next week" when picking a date or typing
   `next week`, and the weekly bars of the activity chart.
