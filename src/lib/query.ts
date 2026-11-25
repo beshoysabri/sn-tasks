@@ -4,11 +4,12 @@
  * key:value terms must all match (AND); commas inside a value mean OR; a leading minus excludes;
  * quotes keep spaces; a lone ID (WEB-12, #12, or an old ID) narrows to that task; other words must
  * all appear in the title, description, comments or ID. Archived tasks only with is:archived.
- * Beyond Octarine: project:web, and custom fields by name (effort:l).
+ * Beyond Octarine: project:web, custom fields by name (effort:l), and due:this-week / due:next-week,
+ * whose weeks start on the day chosen in Settings.
  */
 import { CATEGORIES, PRIORITY_NAMES, PRIORITY_ORDER } from './model/defaults'
 import type { Task, Workspace } from './model/types'
-import { childrenOf, identifier, isClosed, manualOrder, orderedStatuses, projectOf, spaceIdOf, statusOf } from './model/workspace'
+import { childrenOf, identifier, isClosed, manualOrder, nextWeekStart, orderedStatuses, projectOf, spaceIdOf, statusOf } from './model/workspace'
 
 export const KEYS = ['status', 'priority', 'label', 'type', 'bucket', 'cycle', 'space', 'project', 'is', 'has', 'due', 'created', 'completed'] as const
 export type Key = (typeof KEYS)[number] | `field:${string}`
@@ -20,7 +21,7 @@ const VALUE_ALIASES: Partial<Record<Key, Record<string, string>>> = {
   priority: { 0: 'none', 1: 'urgent', 2: 'high', 3: 'medium', 4: 'low' },
   is: { active: 'open', completed: 'closed', done: 'closed', child: 'subtask', sub: 'subtask' },
   has: { comment: 'comments', subtask: 'subtasks', children: 'subtasks', label: 'labels' },
-  due: { past: 'overdue', week: '<7d' },
+  due: { past: 'overdue', week: 'this-week', thisweek: 'this-week', nextweek: 'next-week' },
   cycle: { active: 'current', now: 'current', next: 'upcoming', last: 'previous', prev: 'previous' },
 }
 
@@ -35,7 +36,7 @@ export const KEY_HINTS: Record<(typeof KEYS)[number], string> = {
   project: 'Project key or name, or none',
   is: 'open, closed, overdue, parent, subtask',
   has: 'due, labels, comments, subtasks',
-  due: 'overdue, today, <7d',
+  due: 'overdue, today, this-week, next-week, <7d',
   created: 'Age, e.g. <7d',
   completed: 'Time since done, e.g. <7d',
 }
@@ -45,7 +46,7 @@ export const FIXED_VALUES: Partial<Record<(typeof KEYS)[number], string[]>> = {
   is: ['open', 'closed', 'overdue', 'archived', 'parent', 'subtask'],
   has: ['due', 'labels', 'description', 'comments', 'subtasks', 'parent', 'priority', 'type', 'bucket', 'cycle', 'space'],
   cycle: ['current', 'upcoming', 'previous', 'none'],
-  due: ['overdue', 'today', '<7d', '<30d', 'none'],
+  due: ['overdue', 'today', 'this-week', 'next-week', '<7d', '<30d', 'none'],
   created: ['<1d', '<7d', '<30d', '>30d'],
   completed: ['<1d', '<7d', '<30d', '>30d'],
 }
@@ -145,7 +146,7 @@ export function dueBucket(ws: Workspace, task: Task, now: number): DueBucket {
   const today = localMidnight(now)
   if (due < today) return isOverdue(ws, task, now) ? 'overdue' : 'past'
   if (due === today) return 'today'
-  return due < today + 7 * DAY ? 'week' : 'later'
+  return due < nextWeekStart(new Date(now), ws.settings.weekStart).getTime() ? 'week' : 'later'
 }
 
 export interface MatchContext {
@@ -243,6 +244,14 @@ function termMatches(ctx: MatchContext, task: Task, key: Key, v: string): boolea
       if (v === 'overdue') return isOverdue(ws, task, now)
       const today = localMidnight(now)
       if (v === 'today') return due === today
+      // By the end of this week (overdue included), or within next week; weeks start on the workspace's day.
+      const next = nextWeekStart(new Date(now), ws.settings.weekStart)
+      if (v === 'this-week') return due < next.getTime()
+      if (v === 'next-week') {
+        const after = new Date(next)
+        after.setDate(after.getDate() + 7)
+        return due >= next.getTime() && due < after.getTime()
+      }
       const s = span(v)
       if (!s) return false
       return s.op === '<' ? due < today + s.days * DAY : due >= today + s.days * DAY

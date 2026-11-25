@@ -21,6 +21,12 @@ describe('quick add', () => {
     expect(parseTitle('Pay the tax Dec 12', opts).due).toBe('2026-12-12')
   })
 
+  it('reads next week as the day the next week starts', () => {
+    expect(parseTitle('Call the bank next week', opts).due).toBe('2026-11-30')
+    expect(parseTitle('Call the bank next week', { ...opts, weekStart: 6 }).due).toBe('2026-11-29')
+    expect(parseTitle('Call the bank next week', { ...opts, weekStart: 5 }).due).toBe('2026-11-28')
+  })
+
   it('needs the date at the end and some title before it', () => {
     expect(parseTitle('Friday review notes', opts).due).toBeNull()
     expect(parseTitle('tomorrow', opts).due).toBeNull()

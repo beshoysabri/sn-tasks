@@ -1,7 +1,7 @@
 import { ExternalLink, Plus, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { Project, StatusCategory } from '../lib/model/types'
-import { identifier, labelColour, statusOf } from '../lib/model/workspace'
+import { identifier, labelColour, nextWeekStart, statusOf } from '../lib/model/workspace'
 import * as ops from '../lib/ops'
 import { useApp } from './context'
 import { StatusIcon } from './icons'
@@ -29,11 +29,14 @@ export function ProjectActivity({ project, now }: { project: Project; now: numbe
   const [days, setDays] = useState<Days>(30)
   const [by, setBy] = useState<'status' | 'label'>('status')
   const { buckets, series, total, touched, recent, step } = useMemo(() => {
-    // A year is drawn a week per bar; shorter ranges a day per bar. The last bar ends today.
+    // A year is drawn a week per bar (weeks start on the workspace's day), shorter ranges a day per bar;
+    // the last bar holds today.
     const step = days > 120 ? 7 : 1
-    const end = new Date(now)
-    end.setHours(0, 0, 0, 0)
-    end.setDate(end.getDate() + 1)
+    const end = step === 7 ? nextWeekStart(new Date(now), ws.settings.weekStart) : new Date(now)
+    if (step === 1) {
+      end.setHours(0, 0, 0, 0)
+      end.setDate(end.getDate() + 1)
+    }
     const count = Math.ceil(days / step)
     const start = new Date(end)
     start.setDate(start.getDate() - count * step)

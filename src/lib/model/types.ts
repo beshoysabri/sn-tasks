@@ -212,6 +212,8 @@ export interface Settings {
   noProjectKey: string
   noProjectNext: number
   comments: boolean
+  /** The day weeks start on: 0 = Monday … 6 = Sunday (as cycles count). */
+  weekStart: number
 }
 
 export interface Workspace {

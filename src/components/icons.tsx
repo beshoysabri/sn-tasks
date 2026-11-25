@@ -1,8 +1,9 @@
 /* eslint-disable react-refresh/only-export-components */
 import {
-  Archive, ArrowRightLeft, BookOpen, Briefcase, Calendar, CalendarClock, CalendarDays, CalendarOff, CalendarX2, Car, Check, CircleSlash, Code,
-  Dumbbell, FolderKanban, Gift, Globe, GraduationCap, Hammer, Heart, Home, Inbox, Layers, Leaf, Lightbulb, Megaphone, MessageSquare, Music,
-  Palette, PawPrint, Plane, Plus, RotateCcw, Shapes, ShoppingCart, Sprout, Star, Target, Users, Wallet, Wrench, type LucideIcon,
+  Activity, Archive, ArrowRightLeft, BookOpen, Box, Briefcase, Bug, Calendar, CalendarClock, CalendarDays, CalendarOff, CalendarRange, CalendarX2,
+  Car, ChartColumn, Check, CircleCheck, CircleChevronDown, CircleSlash, Code, Cpu, Database, Dumbbell, FileText, Flag, Folder, FolderKanban, Gift,
+  Globe, GraduationCap, Hammer, Heart, Hexagon, Home, Inbox, Layers, Leaf, Lightbulb, Megaphone, MessageSquare, Music, Palette, PawPrint, Plane,
+  Plus, Rocket, RotateCcw, Server, Shapes, ShoppingCart, SquareActivity, Sprout, Star, Target, Users, Wallet, Wrench, type LucideIcon,
 } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import type { Priority, StatusCategory } from '../lib/model/types'
@@ -85,6 +86,10 @@ export const ENTITY_ICONS: Record<string, LucideIcon> = {
   heart: Heart, 'book-open': BookOpen, code: Code, palette: Palette, megaphone: Megaphone, users: Users, 'graduation-cap': GraduationCap,
   dumbbell: Dumbbell, plane: Plane, car: Car, 'shopping-cart': ShoppingCart, gift: Gift, music: Music, sprout: Sprout, lightbulb: Lightbulb,
   wrench: Wrench, hammer: Hammer, 'paw-print': PawPrint, calendar: Calendar, inbox: Inbox, layers: Layers,
+  // Also drawn for what Octarine workspaces use (codepen: Lucide dropped brand icons).
+  database: Database, box: Box, hexagon: Hexagon, codepen: Hexagon, 'square-activity': SquareActivity, activity: Activity, rocket: Rocket,
+  flag: Flag, folder: Folder, server: Server, cpu: Cpu, bug: Bug, 'file-text': FileText, 'chart-column': ChartColumn,
+  'circle-check': CircleCheck, 'calendar-days': CalendarDays, 'calendar-range': CalendarRange, 'circle-chevron-down': CircleChevronDown,
 }
 
 export function EntityIcon({ name, color, size = 15, fallback = FolderKanban }: { name?: string; color?: string; size?: number; fallback?: LucideIcon }) {

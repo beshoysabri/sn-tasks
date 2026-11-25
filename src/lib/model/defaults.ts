@@ -90,14 +90,14 @@ export const SEED_BUCKETS: Bucket[] = [
 ]
 
 export const SEED_FILTERS: Filter[] = [
-  { id: 'due-this-week', name: 'Due this week', query: 'is:open due:<7d', icon: 'calendar' },
+  { id: 'due-this-week', name: 'Due this week', query: 'is:open due:this-week', icon: 'calendar-days' },
   { id: 'recently-completed', name: 'Recently completed', query: 'completed:<7d', icon: 'circle-check', color: '#62866C' },
 ]
 
 /** A workspace with nothing in it but the built-in vocabulary. */
 export function emptyWorkspace(): Workspace {
   return {
-    settings: { noProjectKey: 'TASK', noProjectNext: 1, comments: true },
+    settings: { noProjectKey: 'TASK', noProjectNext: 1, comments: true, weekStart: 0 },
     statuses: BUILTIN_STATUSES.map((s) => ({ ...s })),
     labels: [],
     types: [],

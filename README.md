@@ -48,8 +48,8 @@ has text keeps it at the top.
   Tab completes a word; Backspace right after a date or priority keeps it as plain text.
 - **Filters** (/): `status:todo priority:urgent,high label:docs due:<7d -label:bug is:overdue "exact words"`.
   Terms must all match, commas mean "or", a minus excludes. Keys: status, priority, label, type, bucket,
-  cycle, space, project, is, has, due, created, completed, and custom fields by name. Save any search as a
-  filter in the sidebar.
+  cycle, space, project, is, has, due, created, completed, and custom fields by name. `due:this-week` and
+  `due:next-week` follow your week. Save any search as a filter in the sidebar.
 - **Cycles**: repeating time boxes of one to four weeks, starting on the weekday you choose. Put tasks in
   the current or the upcoming cycle (Y). When a cycle ends, completing it asks where unfinished work goes
   and keeps its numbers.
@@ -57,6 +57,9 @@ has text keeps it at the top.
   what's up next, and links. Archived projects and spaces stay one click away in the sidebar.
 - **Two devices, one note.** Changes from another device are merged task by task. If a task you're
   editing changed elsewhere, you choose: keep mine or discard mine.
+- **Your week**: Settings › General sets the day weeks start on (Saturday, Sunday or Monday). It decides
+  "This week" for due dates and the Due this week filter, "Next week" when picking a date or typing
+  `next week`, and the weekly bars of the activity chart.
 - **Export** (Settings › General) as CSV for a spreadsheet, Markdown, or JSON with everything, in the
   desktop and web apps.
 - **On a phone**: one column, the sidebar as a drawer, a + button, and a long-press on a task for its menu.
@@ -153,8 +156,11 @@ Tasks note:
 npx vite-node scripts/import-octarine.ts <path to the workspace's .octarine folder> "Tasks" > tasks.json
 ```
 
-Import `tasks.json` under **Preferences › Backups › Import backup**. The script lists anything it couldn't
-read. Keep its output out of this repository: it holds your real tasks.
+Import `tasks.json` under **Preferences › Backups › Import backup**. Projects keep their keys and task
+numbers, IDs from earlier keys keep finding their tasks, and statuses, labels, types, buckets, saved
+filters and history come along; archived labels come only if a task still uses them. Octarine has no week
+setting, so if your cycles start on a Saturday, Sunday or Monday, your weeks start there too. The script
+lists anything it couldn't read. Keep its output out of this repository: it holds your real tasks.
 
 ## Development
 

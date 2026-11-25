@@ -20,7 +20,7 @@ export interface SourceFile {
 const COLOURS: Record<string, string> = {
   blue: '#81B2D9', sky: '#A0C5E3', teal: '#32769B', cyan: '#A0C5E3', green: '#62866C', lime: '#B4CFA4', emerald: '#8BA47C',
   yellow: '#F4D35E', amber: '#F4D35E', orange: '#FF9C5B', coral: '#E39B99', red: '#CB7876', rose: '#E39B99', pink: '#FBC2C2',
-  purple: '#8C7DA8', violet: '#BBA6DD', indigo: '#64557B', brown: '#CB7876',
+  purple: '#8C7DA8', violet: '#BBA6DD', indigo: '#64557B', brown: '#CB7876', azure: '#A0C5E3', magenta: '#E39B99', fuchsia: '#E39B99',
 }
 
 const colour = (v: unknown) => (typeof v === 'string' ? (/^#[0-9a-f]{3,8}$/i.test(v) ? v.toUpperCase() : COLOURS[v.toLowerCase()]) : undefined)
@@ -39,8 +39,29 @@ const date = (v: unknown) => {
   if (v instanceof Date) return v.toISOString().slice(0, 10)
   return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : undefined
 }
-/** lucide:CalendarDays or CalendarDays → calendar-days */
-const icon = (v: unknown) => (typeof v === 'string' ? v.replace(/^lucide:/, '').replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase() : undefined)
+const HEROICONS: Record<string, string> = {
+  'academic-cap': 'graduation-cap', 'calendar-date-range': 'calendar-range', 'check-circle': 'circle-check', 'circle-stack': 'database',
+  'code-bracket': 'code', 'cube': 'box', 'globe-alt': 'globe', 'light-bulb': 'lightbulb', 'musical-note': 'music', 'paper-airplane': 'plane',
+  'rocket-launch': 'rocket', 'server-stack': 'server', 'cpu-chip': 'cpu', 'bug-ant': 'bug', 'document-text': 'file-text', 'folder-open': 'folder',
+  'user-group': 'users', 'home-modern': 'home', 'shopping-bag': 'shopping-cart', 'chart-bar': 'chart-column', 'wrench-screwdriver': 'wrench',
+}
+/** lucide:CalendarDays, CalendarDays or a Heroicons name (AcademicCapIcon) → calendar-days, graduation-cap */
+const icon = (v: unknown) => {
+  if (typeof v !== 'string' || !v.trim()) return undefined
+  const hero = /Icon$/.test(v) && !v.startsWith('lucide:')
+  const name = v.replace(/^lucide:/, '').replace(/Icon$/, '').replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
+  return hero ? (HEROICONS[name] ?? name) : name
+}
+
+/** What Octarine seeds (viewdefaultweek000000000, typedefaultbug0000000000…) keeps the ids Tasks seeds. */
+const SEEDED_VIEWS: Record<string, string> = { week: 'due-this-week', recent: 'recently-completed' }
+function seededId(id: string): string | undefined {
+  const m = /^(view|type|bucket)default([a-z]+?)0*$/.exec(id)
+  if (!m) return undefined
+  return m[1] === 'view' ? SEEDED_VIEWS[m[2]] : m[2]
+}
+const KEY = /^[A-Z][A-Z0-9]{1,4}$/
+const keys = (v: unknown) => strs(v).map((k) => k.toUpperCase()).filter((k) => KEY.test(k))
 
 function frontMatter(text: string): { fields: Record<string, unknown>; body: string } | null {
   const m = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/.exec(text)
@@ -73,7 +94,8 @@ export function importOctarine(files: SourceFile[], now: string): { workspace: W
   const idFor = (octarineId: string) => {
     let id = ids.get(octarineId)
     if (!id) {
-      id = newId()
+      const seeded = seededId(octarineId)
+      id = seeded && ![...ids.values()].includes(seeded) ? seeded : newId()
       ids.set(octarineId, id)
     }
     return id
@@ -81,37 +103,65 @@ export function importOctarine(files: SourceFile[], now: string): { workspace: W
   const parsed = files.map((f) => ({ ...kindOf(f.path), file: f, fm: f.path.endsWith('.md') ? frontMatter(f.text) : null }))
   const of = (k: Kind) => parsed.filter((p) => p.kind === k && p.fm)
   const order = (f: Record<string, unknown>) => (typeof f.order === 'number' ? f.order : Infinity)
+  const createdAt = (f: Record<string, unknown>) => (f.created instanceof Date ? f.created.toISOString() : typeof f.created === 'string' ? f.created : '')
+  /** Octarine's own order: the order field, then the creation time (its seeds and new items have no order). */
+  const byOrder = (a: { fm: { fields: Record<string, unknown> } | null }, b: { fm: { fields: Record<string, unknown> } | null }) =>
+    order(a.fm!.fields) - order(b.fm!.fields) || createdAt(a.fm!.fields).localeCompare(createdAt(b.fm!.fields))
 
+  // config.yml: the key for tasks without a project (and its old keys), the highest number each project
+  // has handed out (so no ID is ever reused), and the cycle schedule (0 = Monday, as in Tasks).
+  let cfg: Record<string, unknown> = {}
   const config = files.find((f) => /(^|\/)config\.ya?ml$/.test(f.path))
   if (config) {
     try {
-      const c = parseYaml(config.text) as Record<string, unknown>
-      const key = str(c?.unassigned_key ?? c?.unassignedKey)
-      if (key && /^[A-Z][A-Z0-9]{1,4}$/.test(key)) ws.settings.noProjectKey = key
+      const c = parseYaml(config.text) as unknown
+      if (c && typeof c === 'object') cfg = c as Record<string, unknown>
     } catch {
       warnings.push('config.yml could not be read.')
     }
   }
+  const unassigned = str(cfg.unassigned_key ?? cfg.unassignedKey)?.toUpperCase()
+  if (unassigned && KEY.test(unassigned)) ws.settings.noProjectKey = unassigned
+  const noProjectAliases = keys(cfg.unassigned_key_aliases).filter((k) => k !== ws.settings.noProjectKey)
+  const handedOut = (cfg.project_numbers && typeof cfg.project_numbers === 'object' ? cfg.project_numbers : {}) as Record<string, unknown>
+  const cycleConfig = cfg.cycles && typeof cfg.cycles === 'object' ? (cfg.cycles as Record<string, unknown>) : null
+  if (cycleConfig) {
+    const days = Number(cycleConfig.duration_days)
+    if ([7, 14, 21, 28].includes(days)) ws.cycleSettings.weeks = days / 7
+    const start = Number(cycleConfig.start_day)
+    if (Number.isInteger(start) && start >= 0 && start <= 6) ws.cycleSettings.startDay = start
+    // Octarine has no week setting of its own; a cycle start on Saturday, Sunday or Monday says where weeks begin.
+    if ([5, 6, 0].includes(start)) ws.settings.weekStart = start
+  }
+
+  // Archived vocabulary comes over only if a task still uses it.
+  const taskFields = parsed.filter((p) => p.kind === 'task' && p.fm).map((p) => p.fm!.fields)
+  const used = (key: string) => new Set(taskFields.flatMap((f) => strs(f[key]).map((v) => normaliseLabel(v).toLowerCase())))
+  const usedLabels = used('labels')
+  const usedStates = used('state')
+  const usedTypes = used('type')
+  const usedBuckets = used('bucket')
+  const keep = (p: (typeof parsed)[number], name: string | undefined, inUse: Set<string>) => !p.archived || inUse.has(p.id.toLowerCase()) || (!!name && inUse.has(normaliseLabel(name).toLowerCase()))
 
   // Vocabulary first: statuses, labels, types, buckets.
   for (const p of of('status').sort((a, b) => order(a.fm!.fields) - order(b.fm!.fields))) {
     const f = p.fm!.fields
     const name = str(f.name)
     const category = CATEGORIES.includes(f.category as StatusCategory) ? (f.category as StatusCategory) : 'unstarted'
-    if (!name || BUILTIN_STATUSES.some((b) => b.id === p.id)) continue
+    if (!name || BUILTIN_STATUSES.some((b) => b.id === p.id) || !keep(p, name, usedStates)) continue
     ws.statuses.push({ id: p.id.toLowerCase().replace(/[^a-z0-9-]/g, '-'), name, category, color: colour(f.color), builtin: false })
   }
-  for (const p of of('label')) {
+  for (const p of of('label').sort(byOrder)) {
     const name = normaliseLabel(str(p.fm!.fields.name) ?? '')
-    if (name) ws.labels.push({ name, color: colour(p.fm!.fields.color) })
+    if (name && keep(p, name, usedLabels) && !ws.labels.some((l) => l.name.toLowerCase() === name.toLowerCase())) ws.labels.push({ name, color: colour(p.fm!.fields.color) })
   }
   for (const p of of('type').sort((a, b) => order(a.fm!.fields) - order(b.fm!.fields))) {
     const f = p.fm!.fields
-    if (str(f.name)) ws.types.push({ id: idFor(p.id), name: str(f.name)!, color: colour(f.color), labels: strs(f.labels), priority: prio(f.priority) })
+    if (str(f.name) && keep(p, str(f.name), usedTypes)) ws.types.push({ id: idFor(p.id), name: str(f.name)!, color: colour(f.color), labels: strs(f.labels).map(normaliseLabel), priority: prio(f.priority) })
   }
   for (const p of of('bucket').sort((a, b) => order(a.fm!.fields) - order(b.fm!.fields))) {
     const f = p.fm!.fields
-    if (str(f.name)) ws.buckets.push({ id: idFor(p.id), name: str(f.name)!, color: colour(f.color) })
+    if (str(f.name) && keep(p, str(f.name), usedBuckets)) ws.buckets.push({ id: idFor(p.id), name: str(f.name)!, color: colour(f.color) })
   }
   const typeId = (v: unknown) => (str(v) ? (ws.types.find((t) => t.id === ids.get(str(v)!) || t.name.toLowerCase() === str(v)!.toLowerCase())?.id) : undefined)
   const bucketId = (v: unknown) => (str(v) ? (ws.buckets.find((b) => b.id === ids.get(str(v)!) || b.name.toLowerCase() === str(v)!.toLowerCase())?.id) : undefined)
@@ -127,6 +177,8 @@ export function importOctarine(files: SourceFile[], now: string): { workspace: W
   }
 
   const statuses: ProjectStatus[] = ['backlog', 'planned', 'in-progress', 'paused', 'completed', 'cancelled']
+  const octarineIdOf = new Map<string, string>()
+  const oldKeys = new Map<string | undefined, string[]>([[undefined, noProjectAliases]])
   for (const p of of('project').sort((a, b) => order(a.fm!.fields) - order(b.fm!.fields))) {
     const f = p.fm!.fields
     const name = str(f.name) ?? 'Untitled project'
@@ -138,10 +190,14 @@ export function importOctarine(files: SourceFile[], now: string): { workspace: W
           return o?.kind === 'link' && str(o.target) ? [{ title: str(o.title) ?? str(o.target)!, url: str(o.target)! }] : []
         })
       : []
+    const id = idFor(p.id)
+    const projectKey = key && KEY.test(key) && !ws.projects.some((x) => x.key === key) ? key : deriveKey(name, ws.projects.map((x) => x.key))
+    octarineIdOf.set(id, p.id)
+    oldKeys.set(id, keys(f.key_aliases ?? f.keyAliases).filter((k) => k !== projectKey))
     ws.projects.push({
-      id: idFor(p.id), name, key: key && /^[A-Z][A-Z0-9]{1,4}$/.test(key) ? key : deriveKey(name, ws.projects.map((x) => x.key)), next: 1,
+      id, name, key: projectKey, next: 1,
       icon: icon(f.icon), color: colour(f.color), status, priority: prio(f.priority), start: date(f.startDate), target: date(f.targetDate),
-      labels: strs(f.tags), space: str(f.space) ? ids.get(str(f.space)!) : undefined,
+      labels: strs(f.tags).map(normaliseLabel), space: str(f.space) ? ids.get(str(f.space)!) : undefined,
       statuses: Array.isArray(f.statuses) ? strs(f.statuses).map((s) => s.toLowerCase()) : undefined,
       labelsOffered: Array.isArray(f.labels) ? strs(f.labels) : undefined,
       buckets: Array.isArray(f.buckets) ? strs(f.buckets).map((b) => ids.get(b) ?? b) : undefined,
@@ -157,7 +213,8 @@ export function importOctarine(files: SourceFile[], now: string): { workspace: W
     ids.set(p.id, String(number))
     ws.cycles.push({ id: String(number), number, name: f.generated ? undefined : str(f.name), start: date(f.start)!, end: date(f.end)!, state, goal: str(f.goal), planned: [], stats: f.stats as never })
   }
-  if (ws.cycles.length) ws.cycleSettings.enabled = true
+  // Cycles stay on if Octarine has them on (or has cycles and no setting says otherwise).
+  ws.cycleSettings.enabled = cycleConfig ? cycleConfig.enabled === true : ws.cycles.length > 0
 
   // History and comments, best effort: JSON ({events: [...]}, an array, or one event per line).
   const activity = new Map<string, HistoryEntry[]>()
@@ -241,13 +298,22 @@ export function importOctarine(files: SourceFile[], now: string): { workspace: W
     return Math.max(0, ...used) + 1
   }
   for (const t of ws.tasks) if (!t.number) t.number = next(t.project)
-  for (const pr of ws.projects) pr.next = next(pr.id)
-  ws.settings.noProjectNext = next(undefined)
+  for (const pr of ws.projects) pr.next = Math.max(next(pr.id), (Number(handedOut[octarineIdOf.get(pr.id) ?? '']) || 0) + 1)
+  ws.settings.noProjectNext = Math.max(next(undefined), (Number(cfg.unassigned_number_highwater) || 0) + 1)
+  // A key changed in Octarine left its old IDs working (SITE-4 for WEB-4); they keep working here.
+  for (const t of ws.tasks) {
+    const old = (oldKeys.get(t.project) ?? []).map((k) => `${k}-${t.number}`)
+    t.aliases = [...new Set([...t.aliases, ...old])]
+  }
 
-  for (const v of of('view')) {
+  for (const v of of('view').sort(byOrder)) {
     const f = v.fm!.fields
-    if (!str(f.name)) continue
-    ws.filters.push({ id: idFor(v.id), name: str(f.name)!, query: typeof f.query === 'string' ? f.query : '', icon: icon(f.icon), color: colour(f.color), project: str(f.project) ? ids.get(str(f.project)!) : undefined, space: str(f.space) ? ids.get(str(f.space)!) : undefined })
+    if (!str(f.name) || v.archived) continue
+    const id = idFor(v.id)
+    const query = typeof f.query === 'string' ? f.query : ''
+    // Octarine's untouched "Due this week" (the next 7 days) becomes Tasks' own, which follows the week setting.
+    const seededQuery = id === 'due-this-week' && query.trim() === 'is:open due:<7d' ? 'is:open due:this-week' : query
+    ws.filters.push({ id, name: str(f.name)!, query: seededQuery, icon: icon(f.icon), color: colour(f.color), project: str(f.project) ? ids.get(str(f.project)!) : undefined, space: str(f.space) ? ids.get(str(f.space)!) : undefined })
   }
   const skipped = parsed.filter((p) => p.kind === 'template').length
   if (skipped) warnings.push(`${skipped} template(s) skipped (Tasks has no templates).`)

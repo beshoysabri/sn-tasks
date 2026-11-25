@@ -42,7 +42,7 @@ import type {
   TaskType,
   Workspace,
 } from '../model/types'
-import { newId, statusOf } from '../model/workspace'
+import { newId, nextWeekStart, statusOf, today, WEEKDAYS } from '../model/workspace'
 
 export const FORMAT_MARKER = 'tasks: 1'
 const SPACES_OFF = 'Projects'
@@ -65,6 +65,7 @@ function frontMatter(ws: Workspace): string[] {
   const lines = ['---', FORMAT_MARKER]
   lines.push(`no-project: ${json({ key: ws.settings.noProjectKey, next: ws.settings.noProjectNext })}`)
   if (!ws.settings.comments) lines.push('comments: false')
+  if (ws.settings.weekStart) lines.push(`week-starts: ${WEEKDAYS[ws.settings.weekStart]}`)
   const list = (name: string, items: object[]) => {
     if (!items.length) return
     lines.push(`${name}:`)
@@ -85,7 +86,8 @@ function frontMatter(ws: Workspace): string[] {
     ws.fields.map((f) => clean({ id: f.id, name: f.name, type: f.type, options: f.options.map((o) => clean({ value: o.value, color: o.color })) })),
   )
   list('filters', ws.filters.map((f) => clean({ id: f.id, name: f.name, query: f.query, icon: f.icon, color: f.color, project: f.project, space: f.space })))
-  if (ws.cycleSettings.enabled || ws.cycles.length) lines.push(`cycles: ${json(ws.cycleSettings)}`)
+  const cyclesChanged = ws.cycleSettings.weeks !== 2 || ws.cycleSettings.startDay !== 0
+  if (ws.cycleSettings.enabled || ws.cycles.length || cyclesChanged) lines.push(`cycles: ${json(ws.cycleSettings)}`)
   list(
     'cycle-list',
     ws.cycles.map((c) => clean({ id: c.id, number: c.number, name: c.name, start: c.start, end: c.end, state: c.state, goal: c.goal, planned: c.planned, stats: c.stats })),
@@ -326,6 +328,11 @@ function parseFrontMatter(lines: string[], ws: Workspace, warnings: string[]) {
         if (typeof v.key === 'string') ws.settings.noProjectKey = v.key
         if (typeof v.next === 'number') ws.settings.noProjectNext = v.next
       } else if (key === 'comments') ws.settings.comments = value !== 'false'
+      else if (key === 'week-starts') {
+        const day = WEEKDAYS.findIndex((d) => d.toLowerCase() === value.trim().toLowerCase())
+        if (day >= 0) ws.settings.weekStart = day
+        else warnings.push(`Unknown first day of the week “${value}”, read as Monday.`)
+      }
       else if (key === 'cycles' && value) {
         const v = JSON.parse(value) as Partial<CycleSettings>
         ws.cycleSettings = { enabled: !!v.enabled, weeks: clampInt(v.weeks, 1, 4, 2), startDay: clampInt(v.startDay, 0, 6, 0) }
@@ -637,9 +644,8 @@ export function readNote(text: string): ReadResult {
 /** The line Standard Notes shows under the note's title in the notes list. */
 export function previewLine(ws: Workspace, todayIso: string): string {
   const open = ws.tasks.filter((t) => !t.archived && !['completed', 'cancelled'].includes(statusOf(ws, t.status).category))
-  const week = new Date(`${todayIso}T00:00:00`)
-  week.setDate(week.getDate() + 7)
-  const weekIso = week.toISOString().slice(0, 10)
+  // Due by the end of this week (local dates: toISOString would shift a day east of UTC).
+  const weekIso = today(nextWeekStart(new Date(`${todayIso}T00:00:00`), ws.settings.weekStart))
   const dueSoon = open.filter((t) => t.due && t.due < weekIso).length
   const parts = [`${open.length} open`]
   if (dueSoon) parts.push(`${dueSoon} due this week`)

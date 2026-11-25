@@ -41,6 +41,24 @@ export function nowStamp(date = new Date()): string {
 }
 
 /** Today's date in the device's time zone, YYYY-MM-DD. */
+/** 0 = Monday … 6 = Sunday, how cycles and the week-start setting count days. */
+export const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+/** Midnight at the start of the week that holds a date. */
+export function weekStartOf(date: Date, weekStart: number): Date {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() - ((((d.getDay() + 6) % 7) - weekStart + 7) % 7))
+  return d
+}
+
+/** Midnight at the start of the following week. */
+export function nextWeekStart(date: Date, weekStart: number): Date {
+  const d = weekStartOf(date, weekStart)
+  d.setDate(d.getDate() + 7)
+  return d
+}
+
 export function today(date = new Date()): string {
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, '0')

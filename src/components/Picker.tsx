@@ -1,9 +1,9 @@
-import * as chrono from 'chrono-node'
 import { Check, Minus, Search } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { PRIORITY_NAMES, PRIORITY_ORDER } from '../lib/model/defaults'
 import type { Priority, Task } from '../lib/model/types'
-import { allLabels, identifier, labelColour, normaliseLabel, projectOf, projectStatuses, statusOf, today } from '../lib/model/workspace'
+import { allLabels, identifier, labelColour, nextWeekStart, normaliseLabel, projectOf, projectStatuses, statusOf, today } from '../lib/model/workspace'
+import { parseDate } from '../lib/quickadd'
 import { useApp, type PickerKind } from './context'
 import { EntityIcon, Layers, PriorityIcon, Shapes, StatusIcon } from './icons'
 import { dueText } from './ui'
@@ -92,12 +92,13 @@ export function Picker() {
         break
       }
       case 'due': {
-        const typed = q ? chrono.parseDate(query, new Date(now), { forwardDate: true }) : null
+        const typed = q ? parseDate(query, new Date(now), ws.settings.weekStart) : null
+        const nextWeek = today(nextWeekStart(new Date(now), ws.settings.weekStart))
         if (typed) list.push({ key: 'typed', label: typed.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }), run: pick(() => actions.setDue(ids, today(typed))) })
         list.push(
           { key: 'today', label: 'Today', hint: dueText(addDays(0), now), run: pick(() => actions.setDue(ids, addDays(0))) },
           { key: 'tomorrow', label: 'Tomorrow', run: pick(() => actions.setDue(ids, addDays(1))) },
-          { key: 'week', label: 'Next week', hint: dueText(addDays(7), now), run: pick(() => actions.setDue(ids, addDays(7))) },
+          { key: 'week', label: 'Next week', hint: dueText(nextWeek, now), run: pick(() => actions.setDue(ids, nextWeek)) },
         )
         if (targets.some((t) => t.due)) list.push({ key: 'none', label: 'Remove due date', run: pick(() => actions.setDue(ids, undefined)) })
         return list

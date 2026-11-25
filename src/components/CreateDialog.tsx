@@ -2,7 +2,7 @@ import { CalendarDays, ChevronRight, Tag, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { PRIORITY_NAMES, PRIORITY_ORDER } from '../lib/model/defaults'
 import type { Priority } from '../lib/model/types'
-import { allLabels, defaultStatusId, identifier, isClosedCategory, labelColour, projectStatuses, statusOf } from '../lib/model/workspace'
+import { allLabels, defaultStatusId, identifier, isClosedCategory, labelColour, nextWeekStart, projectStatuses, statusOf, today } from '../lib/model/workspace'
 import type { NewTask } from '../lib/ops'
 import { completeTitle, parseTitle, tokenKey, type Token } from '../lib/quickadd'
 import { useApp } from './context'
@@ -75,7 +75,7 @@ export function CreateDialog({ init }: { init: Partial<NewTask> }) {
   }, [])
 
   const labels = useMemo(() => allLabels(ws), [ws])
-  const parsed = useMemo(() => parseTitle(title, { knownLabels: labels, keptAsText: kept, now: new Date(now) }), [title, labels, kept, now])
+  const parsed = useMemo(() => parseTitle(title, { knownLabels: labels, keptAsText: kept, now: new Date(now), weekStart: ws.settings.weekStart }), [title, labels, kept, now, ws.settings.weekStart])
   const completion = useMemo(() => completeTitle(title, labels), [title, labels])
 
   const project = fields.project ? ws.projects.find((p) => p.id === fields.project) : undefined
@@ -218,13 +218,13 @@ export function CreateDialog({ init }: { init: Partial<NewTask> }) {
             labels.map((l) => ({ key: l, label: l, icon: <i className="dot" style={{ background: labelColour(ws, l) }} />, on: allChosenLabels.includes(l) })),
             (k) => setFields((f) => ({ ...f, labels: (f.labels ?? []).includes(k) ? (f.labels ?? []).filter((x) => x !== k) : [...(f.labels ?? []), k] })), true)}
           {chip('Due date', !!due, <CalendarDays size={14} />, due ? dueText(due, now) : '',
-            [0, 1, 7].map((n) => {
-              const d = new Date(now)
-              d.setDate(d.getDate() + n)
-              const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-              return { key: iso, label: n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : 'Next week', on: iso === due }
+            ([['Today', 0], ['Tomorrow', 1], ['Next week', null]] as const).map(([label, n]) => {
+              const d = n === null ? nextWeekStart(new Date(now), ws.settings.weekStart) : new Date(now)
+              if (n) d.setDate(d.getDate() + n)
+              const iso = today(d)
+              return { key: `${label}:${iso}`, label: label as string, on: iso === due }
             }).concat(due ? [{ key: '', label: 'Remove due date', on: false }] : []),
-            (k) => setFields((f) => ({ ...f, due: k || undefined })))}
+            (k) => setFields((f) => ({ ...f, due: k ? k.slice(k.indexOf(':') + 1) : undefined })))}
         </div>
         <div className="dlg-foot">
           <button type="button" className="switch" role="switch" aria-checked={createMore} aria-label="Create more" onClick={() => store.setView({ createMore: !createMore })} />

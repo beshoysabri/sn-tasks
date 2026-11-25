@@ -6,7 +6,7 @@
  */
 import * as chrono from 'chrono-node'
 import type { Priority } from './model/types'
-import { normaliseLabel, today } from './model/workspace'
+import { nextWeekStart, normaliseLabel, today } from './model/workspace'
 
 export type TokenKind = 'label' | 'priority' | 'date'
 
@@ -39,6 +39,14 @@ export interface ParseOptions {
   parseDates?: boolean
   keptAsText?: string[]
   now?: Date
+  /** 0 = Monday … 6 = Sunday: "next week" means the day the next week starts. */
+  weekStart?: number
+}
+
+/** A typed date: chrono's reading, except that "next week" is the first day of the next week. */
+export function parseDate(text: string, now: Date, weekStart = 0): Date | null {
+  if (/^\s*next week\s*$/i.test(text)) return nextWeekStart(now, weekStart)
+  return chrono.parseDate(text, now, { forwardDate: true })
 }
 
 function labelTokens(text: string, known: Map<string, string>, create: boolean, kept: Set<string>): Token[] {
@@ -65,7 +73,7 @@ function priorityTokens(text: string, kept: Set<string>): Token[] {
 }
 
 /** A date counts only at the end of the title, with title text before it. */
-function dateToken(text: string, others: Token[], now: Date, kept: Set<string>): Token | null {
+function dateToken(text: string, others: Token[], now: Date, kept: Set<string>, weekStart: number): Token | null {
   const results = chrono.parse(text, now, { forwardDate: true })
   for (let i = results.length - 1; i >= 0; i--) {
     const r = results[i]
@@ -78,7 +86,8 @@ function dateToken(text: string, others: Token[], now: Date, kept: Set<string>):
     for (const t of others.filter((o) => o.start >= end)) after = after.replace(text.slice(t.start, t.end), '')
     const before = squash(text.slice(0, start)).replace(/[#!]\S+/g, '').trim()
     if (after.trim() || !before) continue
-    return { kind: 'date', start, end, value: today(r.start.date()) }
+    const date = /^next week$/i.test(r.text.trim()) ? nextWeekStart(now, weekStart) : r.start.date()
+    return { kind: 'date', start, end, value: today(date) }
   }
   return null
 }
@@ -89,7 +98,7 @@ export function parseTitle(text: string, options: ParseOptions): Parsed {
   const labels = labelTokens(text, known, options.createLabels ?? true, kept)
   const priorities = options.parseDates === false ? [] : priorityTokens(text, kept)
   const others = [...labels, ...priorities]
-  const date = options.parseDates === false ? null : dateToken(text, others, options.now ?? new Date(), kept)
+  const date = options.parseDates === false ? null : dateToken(text, others, options.now ?? new Date(), kept, options.weekStart ?? 0)
   const tokens = [...others, ...(date ? [date] : [])].sort((a, b) => a.start - b.start)
   let title = ''
   let at = 0

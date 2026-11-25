@@ -48,3 +48,55 @@ describe('importing an Octarine workspace', () => {
     expect(writeNote(back.workspace)).toBe(text)
   })
 })
+
+// Shaped like a real 0.58 workspace's config, defaults and archive (made-up content).
+const files2 = [
+  { path: 'tasks/config.yml', text: 'cycles:\n  duration_days: 21\n  enabled: false\n  start_day: 6\nproject_numbers:\n  cm1proj000000000000000001: 12\nunassigned_key: INBOX\nunassigned_key_aliases:\n- TASK\n- TSK\nunassigned_number_highwater: 4\n' },
+  { path: 'tasks/projects/cm1proj000000000000000001.md', text: '---\ncolor: azure\nicon: AcademicCapIcon\nkey: DOC\nkey_aliases:\n- WIKI\nname: Handbook\nstatuses:\n- backlog\n- todo\n- done\ntags:\n- Tools\n---\n' },
+  { path: 'tasks/projects/cm1proj000000000000000002.md', text: '---\ncolor: magenta\nicon: lucide:Database\nkey: DOC\nname: Same key\n---\n' },
+  { path: 'tasks/labels/labeldefaultbug000000000.md', text: '---\ncolor: theme-icon\nname: Bug\n---\n' },
+  { path: 'tasks/labels/.archive/cm1label00000000000000001.md', text: '---\nname: Old label\n---\n' },
+  { path: 'tasks/labels/.archive/cm1label00000000000000002.md', text: '---\ncolor: red\nname: Still used\n---\n' },
+  { path: 'tasks/types/typedefaultbug0000000000.md', text: '---\ncolor: red\nname: Bug\norder: 1\n---\n' },
+  { path: 'tasks/buckets/bucketdefaultnow00000000.md', text: '---\ncolor: orange\nname: Now\norder: 1\n---\n' },
+  { path: 'tasks/views/viewdefaultweek000000000.md', text: '---\ncolor: cyan\nicon: lucide:CalendarDays\nname: Due this week\nquery: is:open due:<7d\n---\n' },
+  { path: 'tasks/views/viewdefaultrecent0000000.md', text: '---\ncolor: green\nicon: lucide:CircleCheck\nname: Recently completed\nquery: completed:<7d\n---\n' },
+  { path: 'tasks/views/.archive/cm1view000000000000000001.md', text: '---\nname: Gone\nquery: label:x\n---\n' },
+  { path: 'tasks/cm1task000000000000000001.md', text: '---\nbucket: bucketdefaultnow00000000\ncreated: 2026-11-19T10:00:00.000Z\nlabels:\n- Still used\nnumber: 4\nproject: cm1proj000000000000000001\nstate: backlog\ntitle: Map the fields\n---\n' },
+  { path: 'tasks/cm1task000000000000000002.md', text: '---\ncreated: 2026-11-19T11:00:00.000Z\nnumber: 2\nstate: todo\ntitle: Loose\n---\n' },
+]
+
+describe('importing a workspace with Octarine\'s config, defaults and archive', () => {
+  const { workspace: ws, warnings } = importOctarine(files2, '2026-11-25T10:00Z')
+  const [line, same] = ws.projects
+  const [mapTask, loose] = ws.tasks
+
+  it('never reuses an ID and keeps old keys working', () => {
+    expect(warnings).toEqual([])
+    expect(line.next).toBe(13)
+    expect(identifier(ws, mapTask)).toBe('DOC-4')
+    expect(mapTask.aliases).toEqual(['WIKI-4'])
+    expect(same.key).not.toBe('DOC')
+    expect(ws.settings.noProjectKey).toBe('INBOX')
+    expect(ws.settings.noProjectNext).toBe(5)
+    expect(identifier(ws, loose)).toBe('INBOX-2')
+    expect(loose.aliases).toEqual(['TASK-2', 'TSK-2'])
+  })
+
+  it('maps colours, icons, seeded ids and the cycle schedule', () => {
+    expect(line).toMatchObject({ color: '#A0C5E3', icon: 'graduation-cap', statuses: ['backlog', 'todo', 'done'], labels: ['Tools'] })
+    expect(same).toMatchObject({ color: '#E39B99', icon: 'database' })
+    expect(ws.labels.find((l) => l.name === 'Bug')?.color).toBeUndefined()
+    expect(ws.types[0].id).toBe('bug')
+    expect(ws.buckets[0].id).toBe('now')
+    expect(mapTask.bucket).toBe('now')
+    expect(ws.filters.map((f) => [f.id, f.icon, f.query])).toEqual([['due-this-week', 'calendar-days', 'is:open due:this-week'], ['recently-completed', 'circle-check', 'completed:<7d']])
+    expect(ws.cycleSettings).toEqual({ enabled: false, weeks: 3, startDay: 6 })
+    expect(ws.settings.weekStart).toBe(6)
+  })
+
+  it('brings archived labels only when a task still uses them', () => {
+    expect(ws.labels.map((l) => l.name)).toEqual(['Bug', 'Still-used'])
+    expect(mapTask.labels).toEqual(['Still-used'])
+  })
+})

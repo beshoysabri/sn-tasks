@@ -102,6 +102,16 @@ describe('the editor inside a fake Standard Notes', () => {
     await waitFor(() => expect(savedText(host)).not.toMatch(/- Archived: yes/))
   })
 
+  it('lets the week start on Sunday from Settings', async () => {
+    const user = userEvent.setup()
+    host.openNote(writeNote(demoWorkspace()))
+    render(<App store={store} />)
+    const sidebar = await screen.findByRole('complementary', { name: 'Tasks' })
+    await user.click(within(sidebar).getByRole('button', { name: /Settings/ }))
+    await user.selectOptions(await screen.findByLabelText('Week starts on'), 'Sunday')
+    await waitFor(() => expect(savedText(host)).toContain('\nweek-starts: Sunday\n'))
+  })
+
   it('makes no network requests', async () => {
     const network = { fetch: vi.fn(), XMLHttpRequest: vi.fn(), WebSocket: vi.fn(), EventSource: vi.fn() }
     for (const [name, fake] of Object.entries(network)) vi.stubGlobal(name, fake)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { demoWorkspace } from '../sample/demo'
-import { identifier } from './model/workspace'
+import { identifier, nextWeekStart, today, weekStartOf } from './model/workspace'
 import { compareTasks, dueBucket, filterTasks, formatTerm, parseQuery, upNext } from './query'
 
 const NOW = new Date('2026-11-24T12:00:00').getTime()
@@ -9,6 +9,34 @@ const ids = (query: string) =>
   filterTasks(ws, ws.tasks, query, NOW)
     .map((t) => identifier(ws, t))
     .sort()
+
+describe('weeks', () => {
+  // NOW is Tuesday 24 November 2026.
+  it('start on the chosen day', () => {
+    expect(today(weekStartOf(new Date(NOW), 0))).toBe('2026-11-23')
+    expect(today(weekStartOf(new Date(NOW), 6))).toBe('2026-11-22')
+    expect(today(weekStartOf(new Date(NOW), 5))).toBe('2026-11-21')
+    expect(today(nextWeekStart(new Date(NOW), 6))).toBe('2026-11-29')
+    expect(today(weekStartOf(new Date('2026-11-29T09:00:00'), 6))).toBe('2026-11-29')
+  })
+
+  it('decide what is due this week and next week', () => {
+    const sunday = { ...ws, settings: { ...ws.settings, weekStart: 6 } }
+    const due = (d: string) => ({ ...ws.tasks[0], due: d, status: 'todo', archived: undefined })
+    // Saturday 28 Nov ends the week that started on Sunday; with Monday weeks the week runs to Sunday 29.
+    expect(dueBucket(sunday, due('2026-11-28'), NOW)).toBe('week')
+    expect(dueBucket(sunday, due('2026-11-29'), NOW)).toBe('later')
+    expect(dueBucket(ws, due('2026-11-29'), NOW)).toBe('week')
+    expect(dueBucket(ws, due('2026-11-30'), NOW)).toBe('later')
+    const match = (w: typeof ws, d: string, q: string) => filterTasks(w, [due(d)], q, NOW).length === 1
+    expect(match(sunday, '2026-11-28', 'due:this-week')).toBe(true)
+    expect(match(sunday, '2026-11-29', 'due:this-week')).toBe(false)
+    expect(match(sunday, '2026-11-29', 'due:next-week')).toBe(true)
+    expect(match(sunday, '2026-12-05', 'due:next-week')).toBe(true)
+    expect(match(sunday, '2026-12-06', 'due:next-week')).toBe(false)
+    expect(match(sunday, '2026-11-01', 'due:this-week')).toBe(true)
+  })
+})
 
 describe('parsing', () => {
   it('splits words, terms, negation, OR lists and an ID', () => {

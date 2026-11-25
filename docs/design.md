@@ -33,6 +33,23 @@ Newest decisions first.
 
 ## Decisions during the build
 
+- 2026-11-25 · **The first day of the week is a setting** (Saturday, Sunday or Monday; `week-starts: Sunday`
+  in the note, written only when it isn't Monday). "This week" (due groups, `due:this-week`, the Due this week
+  filter, the note's preview line) runs to the day before the next week starts; `due:this-week` includes
+  overdue tasks, the due group doesn't (they have their own). "Next week" in the pickers and `next week` in
+  quick add mean the day the next week starts. A year of activity is drawn in those weeks. Cycles keep their
+  own start day. Cycle settings are now kept in the note while cycles are off. The preview line counted the
+  week's end in UTC, a day early east of UTC; it uses local dates now.
+- 2026-11-25 · **The Octarine importer was checked against a real 0.58 workspace** and adjusted to it:
+  `tasks/config.yml` holds `unassigned_key` and its `unassigned_key_aliases`, `project_numbers` and
+  `unassigned_number_highwater` (the highest numbers handed out, so new IDs never reuse one) and `cycles`
+  (`duration_days`, `enabled`, `start_day` with 0 = Monday); projects carry `key_aliases` (old keys, kept as
+  task aliases); colours are names (including `azure`, `magenta` and `theme-icon`, which means none); icons
+  are `lucide:Name` or Heroicons names (`AcademicCapIcon`); Lucide dropped brand icons such as Codepen, drawn
+  as a hexagon; seeded views, types and buckets (`viewdefaultweek000000000`…) keep Tasks' seeded ids, and an
+  untouched "Due this week" becomes Tasks' own; archived labels, types, buckets and statuses come only if a
+  task uses them; labels and views keep Octarine's order (order field, then creation time).
+
 - 2026-11-25 · **Archived projects and spaces stay reachable**: the sidebar's "N archived" opens a list of
   them (and of the projects inside an archived space), so Restore, which lives in their own menus, can be
   found. Spaces gained Archive / Restore next to Delete.

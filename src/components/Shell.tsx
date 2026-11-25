@@ -406,7 +406,7 @@ function Sidebar({ loc, go }: { loc: Location; go: (l: Location) => void }) {
         <div className="sb-section">Filters</div>
         {shared.map((f) => (
           <button key={f.id} className="sb-item" aria-current={current({ kind: 'filter', id: f.id }) ? 'page' : undefined} onClick={() => go({ kind: 'filter', id: f.id })}>
-            {f.id === 'recently-completed' ? <CircleCheck size={14} style={{ color: f.color ?? 'var(--review)' }} /> : <CalendarDays size={14} className="faint" />}
+            <FilterIcon filter={f} />
             <span className="name">{f.name}</span>
             <span className="count num">{filterCount(f) || ''}</span>
           </button>
@@ -537,6 +537,13 @@ function ProjectMenu({ projectId, onDeleted }: { projectId: string; onDeleted: (
       )}
     </div>
   )
+}
+
+/** A saved filter's own icon (imported ones bring theirs); the two built-in filters keep theirs. */
+function FilterIcon({ filter: f }: { filter: Filter }) {
+  const Icon = (f.icon && ENTITY_ICONS[f.icon]) || (f.id === 'recently-completed' ? CircleCheck : CalendarDays)
+  const color = f.color ?? (f.id === 'recently-completed' ? 'var(--review)' : undefined)
+  return <Icon size={14} className={color ? undefined : 'faint'} style={color ? { color } : undefined} aria-hidden />
 }
 
 function SpaceMenu({ spaceId, onDeleted }: { spaceId: string; onDeleted: () => void }) {

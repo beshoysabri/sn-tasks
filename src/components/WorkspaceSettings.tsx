@@ -2,7 +2,7 @@ import { ArrowDown, ArrowUp, Lock, Plus, Trash2 } from 'lucide-react'
 import { useRef, useState, type ReactNode } from 'react'
 import { CATEGORIES, CATEGORY_NAMES, PALETTE, PRIORITY_NAMES } from '../lib/model/defaults'
 import type { FieldType, Priority, StatusCategory, Workspace } from '../lib/model/types'
-import { allLabels, labelColour, today } from '../lib/model/workspace'
+import { allLabels, labelColour, today, WEEKDAYS } from '../lib/model/workspace'
 import { ensureCycles } from '../lib/cycles'
 import { download, fileName, toCsv, toJson, toMarkdown } from '../lib/export'
 import * as s from '../lib/settingsOps'
@@ -220,7 +220,7 @@ export function WorkspaceSettings({ page, onPage }: { page: string; onPage: (p: 
               <label style={rowStyle}>
                 <span style={{ width: 110 }} className="muted">Starts on</span>
                 <select value={ws.cycleSettings.startDay} disabled={locked} onChange={(e) => apply('Cycle start', (d) => d.set('cycleSettings', { ...d.ws.cycleSettings, startDay: Number(e.target.value) }))}>
-                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((n, i) => <option key={n} value={i}>{n}</option>)}
+                  {WEEKDAYS.map((n, i) => <option key={n} value={i}>{n}</option>)}
                 </select>
               </label>
             </div>
@@ -261,6 +261,15 @@ function GeneralPage() {
             <div className="faint" style={{ fontSize: 12.5 }}>Each project numbers its tasks under its own key, like WEB-1. Tasks without a project use this one: {ws.settings.noProjectKey}-1, {ws.settings.noProjectKey}-2…</div>
           </div>
           <input aria-label="Key for tasks without a project" value={key} readOnly={state.locked} onChange={(e) => setKey(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5))} onBlur={() => store.apply('Changed key', (d) => s.setNoProjectKey(d, key))} style={{ width: 90, fontFamily: 'var(--mono)', height: 30, border: '1px solid var(--line-2)', borderRadius: 6, padding: '0 8px', background: 'var(--bg)' }} />
+        </div>
+        <div style={{ ...rowStyle, flexWrap: 'wrap', padding: '8px' }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div>Week starts on</div>
+            <div className="faint" style={{ fontSize: 12.5 }}>Sets “This week” for due dates and the Due this week filter, “Next week” when picking a date, and the weekly bars in a project’s activity.</div>
+          </div>
+          <select aria-label="Week starts on" className="btn" value={ws.settings.weekStart} disabled={state.locked} onChange={(e) => store.apply('Week start', (d) => d.set('settings', { ...d.ws.settings, weekStart: Number(e.target.value) }))}>
+            {[...new Set([5, 6, 0, ws.settings.weekStart])].map((day) => <option key={day} value={day}>{WEEKDAYS[day]}</option>)}
+          </select>
         </div>
         <label style={{ ...rowStyle, padding: '8px' }}>
           <input type="checkbox" checked={ws.settings.comments} disabled={state.locked} onChange={(e) => store.apply('Comments', (d) => d.set('settings', { ...d.ws.settings, comments: e.target.checked }))} />

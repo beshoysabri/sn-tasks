@@ -80,6 +80,19 @@ describe('format 1', () => {
     expect(back.tasks.length).toBe(ws.tasks.length)
   })
 
+  it('keeps the first day of the week and a cycle schedule while cycles are off', () => {
+    const ws = demoWorkspace()
+    ws.settings.weekStart = 6
+    ws.cycleSettings = { enabled: false, weeks: 3, startDay: 6 }
+    ws.cycles = []
+    const text = writeNote(ws)
+    expect(text).toContain('\nweek-starts: Sunday\n')
+    const back = readNote(text).workspace
+    expect(back.settings.weekStart).toBe(6)
+    expect(back.cycleSettings).toEqual({ enabled: false, weeks: 3, startDay: 6 })
+    expect(writeNote(emptyWorkspace())).not.toMatch(/week-starts|cycles:/)
+  })
+
   it('escapes and unescapes losslessly', () => {
     const samples = ['# h', '> q', '\\# e', '\\\\> ee', '  # i', 'plain', '#hashtag']
     for (const s of samples) expect(unescapeBody(escapeBody(s))).toBe(s)
